@@ -1,0 +1,22 @@
+[build]
+  functions = "netlify/functions"
+
+# Map the paths the app already calls onto the function files, so index.html
+# needs no change beyond pointing BACKEND at this same site.
+[[redirects]]
+  from = "/auth/session"
+  to = "/.netlify/functions/auth-session"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/send-slack"
+  to = "/.netlify/functions/send-slack"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/send-report"
+  to = "/.netlify/functions/send-report"
+  status = 200
+  force = true
