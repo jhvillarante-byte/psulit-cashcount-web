@@ -184,27 +184,28 @@ function renderSvg(data) {
     body += `<text x="${margin + 38}" y="${y}" font-size="21" font-weight="400" fill="#9A6A00">CCTV footage for ${esc(data.cctv)} on record.</text>`;
   }
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n    <style>text { font-family: 'DejaVu Sans'; }</style>\n    ${body}\n  </svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n    <style>text { font-family: 'DejaVu Sans', sans-serif; }</style>\n    ${body}\n  </svg>`;
 }
 
-function loadBundledFonts() {
+function bundledFontFiles() {
   const fontDir = path.resolve(__dirname, "../../node_modules/dejavu-fonts-ttf/ttf");
   const regularPath = path.join(fontDir, "DejaVuSans.ttf");
   const boldPath = path.join(fontDir, "DejaVuSans-Bold.ttf");
   if (!fs.existsSync(regularPath) || !fs.existsSync(boldPath)) {
     throw new Error("Bundled report fonts are missing from the Netlify function package.");
   }
-  return [fs.readFileSync(regularPath), fs.readFileSync(boldPath)];
+  return [regularPath, boldPath];
 }
 
 async function renderCashCountPng(message) {
   const data = parseReport(message);
   const svg = renderSvg(data);
-  const fontBuffers = loadBundledFonts();
+  const fontFiles = bundledFontFiles();
   const resvg = new Resvg(svg, {
     font: {
-      fontBuffers,
+      fontFiles,
       defaultFontFamily: "DejaVu Sans",
+      sansSerifFamily: "DejaVu Sans",
       loadSystemFonts: false,
     },
   });
