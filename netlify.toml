@@ -17,7 +17,7 @@
 
 [[redirects]]
   from = "/send-report"
-  to = "/.netlify/functions/send-report"
+  to = "/.netlify/functions/send-report-v2"
   status = 200
   force = true
 
