@@ -20,30 +20,11 @@ function telegramTarget(branch) {
   };
 }
 
-async function sendTextFallback(branch, text) {
-  const token = process.env.TELEGRAM_BOT_TOKEN;
-  const { chatId, threadId } = telegramTarget(branch);
-  const response = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ chat_id: chatId, message_thread_id: Number(threadId), text: text.slice(0, 4096) }),
-  });
-  const result = await response.json();
-  if (!result.ok) throw new Error(`${branch}: ${result.description || "Telegram rejected the message."}`);
-  return result.result && result.result.message_id;
-}
-
 async function sendTelegram(branch, text) {
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const { chatId, threadId } = telegramTarget(branch);
   if (!token || !chatId || !threadId) throw new Error(`${branch} Telegram target is not configured.`);
-
-  try {
-    return await sendCashCountPhoto({ token, chatId, threadId, message: text });
-  } catch (error) {
-    console.error(`${branch} styled backfill image failed; using text fallback:`, error.message);
-    return sendTextFallback(branch, text);
-  }
+  return sendCashCountPhoto({ token, chatId, threadId, message: text });
 }
 
 exports.handler = async (event) => {
@@ -63,13 +44,17 @@ exports.handler = async (event) => {
 
     return json(200, {
       ok: true,
+      delivery: "image",
       posted: {
         Alphaland: alphalandMessageId,
         Solaire: solaireMessageId,
       },
     });
   } catch (error) {
-    console.error("Opening Cash Count backfill failed:", error.message);
-    return json(502, { ok: false, error: error.message });
+    console.error("Styled opening Cash Count backfill failed:", error);
+    return json(502, {
+      ok: false,
+      error: `Styled image post failed: ${error.message || "Unknown error"}`,
+    });
   }
 };
