@@ -1,5 +1,7 @@
-const sharp = require("sharp");
+const { Resvg } = require("@resvg/resvg-js");
 const crypto = require("crypto");
+
+const FONT_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/notosans/NotoSans%5Bwdth,wght%5D.ttf";
 
 function esc(value) {
   return String(value ?? "")
@@ -26,7 +28,6 @@ function normalizeHeading(line) {
 function parseReport(message) {
   const text = clean(message);
   const lines = text.split("\n").map(x => x.trim()).filter(Boolean);
-
   const titleLine = lines[0] || "CASH COUNT";
   const title = /CLOSING/i.test(titleLine) ? "CASH COUNT — CLOSING" : "CASH COUNT — OPENING";
   const branch = first(text, /Branch:\s*([^\n]+)/i);
@@ -58,7 +59,6 @@ function parseReport(message) {
     if (normalized.includes("RECEIVABLES") && normalized.includes("OWED TO PSULIT")) { pushSection("RECEIVABLES"); continue; }
     if (normalized.includes("PAYABLES") && normalized.includes("OWED BY PSULIT")) { pushSection("PAYABLES"); continue; }
     if (normalized.includes("SCRATCH IT") && normalized.includes("PHYSICAL COUNT")) { pushSection("SCRATCH PHYSICAL COUNT"); continue; }
-
     if (!current) continue;
 
     let label = "";
@@ -113,46 +113,38 @@ function palette(name) {
 
 function lineSvg(x, y, label, value, width) {
   const rightX = x + width;
-  return `\n    <text x="${x}" y="${y}" font-size="25" font-weight="600" fill="#24364B">${esc(label)}</text>\n    <text x="${rightX}" y="${y}" text-anchor="end" font-size="25" font-weight="700" fill="#16273A">${esc(value)}</text>`;
+  return `\n    <text x="${x}" y="${y}" font-size="26" font-weight="600" fill="#24364B">${esc(label)}</text>\n    <text x="${rightX}" y="${y}" text-anchor="end" font-size="26" font-weight="700" fill="#16273A">${esc(value)}</text>`;
 }
 
 function renderSvg(data) {
   const width = 1000;
   const margin = 56;
   const cardW = width - margin * 2;
-  const rowH = 42;
-  const sectionHeaderH = 54;
-  const sectionPad = 24;
-  const detailRows = 5;
-
-  let contentH = 130 + detailRows * 42 + 34;
+  const rowH = 46;
+  const sectionHeaderH = 58;
+  let contentH = 390;
   for (const s of data.sections) {
     if (!s.rows.length) continue;
-    contentH += sectionHeaderH + sectionPad + s.rows.length * rowH + 20;
+    contentH += sectionHeaderH + 26 + s.rows.length * rowH + 24;
   }
-  contentH += 150;
-  const height = Math.max(1200, contentH + 90);
+  contentH += 190;
+  const height = Math.max(1250, contentH + 100);
 
   let y = 58;
   let body = "";
-
   body += `<rect x="0" y="0" width="${width}" height="${height}" fill="#EEF3F8"/>`;
   body += `<rect x="${margin}" y="${y}" width="${cardW}" height="${height - 116}" rx="30" fill="#FFFFFF"/>`;
-
   body += `<rect x="${margin}" y="${y}" width="${cardW}" height="118" rx="30" fill="#F8FBFD"/>`;
   body += `<rect x="${margin}" y="${y + 88}" width="${cardW}" height="30" fill="#F8FBFD"/>`;
-  body += `<text x="${margin + 34}" y="${y + 43}" font-size="22" font-weight="900" letter-spacing="3" fill="#11864B">PSULIT</text>`;
-  body += `<text x="${margin + 34}" y="${y + 82}" font-size="38" font-weight="900" fill="#17324D">${esc(data.title)}</text>`;
-  body += `<text x="${margin + cardW - 34}" y="${y + 47}" text-anchor="end" font-size="20" font-weight="700" fill="#6C7E90">Daily Report</text>`;
+  body += `<text x="${margin + 34}" y="${y + 43}" font-size="24" font-weight="900" letter-spacing="3" fill="#11864B">PSULIT</text>`;
+  body += `<text x="${margin + 34}" y="${y + 84}" font-size="40" font-weight="900" fill="#17324D">${esc(data.title)}</text>`;
+  body += `<text x="${margin + cardW - 34}" y="${y + 47}" text-anchor="end" font-size="21" font-weight="700" fill="#6C7E90">Daily Report</text>`;
   if (data.isBackfill) {
     body += `<rect x="${margin + cardW - 190}" y="${y + 63}" width="156" height="34" rx="17" fill="#FFF2C7"/>`;
     body += `<text x="${margin + cardW - 112}" y="${y + 87}" text-anchor="middle" font-size="17" font-weight="800" fill="#8A6500">BACKFILL</text>`;
   }
-  y += 142;
+  y += 145;
 
-  const detailX = margin + 34;
-  const labelX = detailX;
-  const valueX = margin + 235;
   const details = [
     ["Branch", data.branch],
     ["Shift", data.shift],
@@ -161,52 +153,64 @@ function renderSvg(data) {
     ["Ref Code", data.ref],
   ];
   for (const [label, value] of details) {
-    body += `<text x="${labelX}" y="${y}" font-size="22" font-weight="700" fill="#718196">${esc(label)}</text>`;
-    body += `<text x="${valueX}" y="${y}" font-size="22" font-weight="700" fill="#22364A">${esc(value)}</text>`;
-    y += 42;
+    body += `<text x="${margin + 34}" y="${y}" font-size="23" font-weight="700" fill="#718196">${esc(label)}</text>`;
+    body += `<text x="${margin + 235}" y="${y}" font-size="23" font-weight="700" fill="#22364A">${esc(value)}</text>`;
+    y += 44;
   }
   y += 8;
   body += `<line x1="${margin + 34}" y1="${y}" x2="${margin + cardW - 34}" y2="${y}" stroke="#E4EAF0" stroke-width="2"/>`;
-  y += 28;
+  y += 30;
 
   for (const section of data.sections) {
     if (!section.rows.length) continue;
     const [bg, fg] = palette(section.name);
     body += `<rect x="${margin + 28}" y="${y}" width="${cardW - 56}" height="${sectionHeaderH}" rx="14" fill="${bg}"/>`;
-    body += `<text x="${margin + 50}" y="${y + 36}" font-size="22" font-weight="900" letter-spacing="1" fill="${fg}">${esc(section.name)}</text>`;
-    y += sectionHeaderH + 24;
-
+    body += `<text x="${margin + 50}" y="${y + 39}" font-size="24" font-weight="900" letter-spacing="1" fill="${fg}">${esc(section.name)}</text>`;
+    y += sectionHeaderH + 26;
     for (const row of section.rows) {
       body += lineSvg(margin + 52, y, row.label, row.value, cardW - 104);
       y += rowH;
     }
-    y += 12;
+    y += 14;
   }
 
-  body += `<rect x="${margin + 28}" y="${y}" width="${cardW - 56}" height="78" rx="18" fill="#EAF3FF"/>`;
-  body += `<text x="${margin + 54}" y="${y + 50}" font-size="27" font-weight="900" fill="#245D9C">GRAND TOTAL</text>`;
-  body += `<text x="${margin + cardW - 54}" y="${y + 50}" text-anchor="end" font-size="33" font-weight="900" fill="#17324D">${esc(data.grandTotal)}</text>`;
-  y += 104;
-
-  body += `<text x="${margin + 38}" y="${y}" font-size="21" font-weight="800" fill="#168653">✓ Submitted &amp; Locked</text>`;
-  y += 35;
+  body += `<rect x="${margin + 28}" y="${y}" width="${cardW - 56}" height="82" rx="18" fill="#EAF3FF"/>`;
+  body += `<text x="${margin + 54}" y="${y + 53}" font-size="28" font-weight="900" fill="#245D9C">GRAND TOTAL</text>`;
+  body += `<text x="${margin + cardW - 54}" y="${y + 53}" text-anchor="end" font-size="34" font-weight="900" fill="#17324D">${esc(data.grandTotal)}</text>`;
+  y += 110;
+  body += `<text x="${margin + 38}" y="${y}" font-size="22" font-weight="800" fill="#168653">Submitted &amp; Locked</text>`;
+  y += 38;
   if (data.cctv) {
-    body += `<text x="${margin + 38}" y="${y}" font-size="20" font-weight="600" fill="#9A6A00">CCTV footage for ${esc(data.cctv)} on record.</text>`;
+    body += `<text x="${margin + 38}" y="${y}" font-size="21" font-weight="600" fill="#9A6A00">CCTV footage for ${esc(data.cctv)} on record.</text>`;
   }
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n    <style>text { font-family: Arial, Helvetica, sans-serif; }</style>\n    ${body}\n  </svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n    <style>text { font-family: 'Noto Sans'; }</style>\n    ${body}\n  </svg>`;
+}
+
+async function loadFontBuffer() {
+  const response = await fetch(FONT_URL);
+  if (!response.ok) throw new Error(`Could not load report font (${response.status}).`);
+  return Buffer.from(await response.arrayBuffer());
 }
 
 async function renderCashCountPng(message) {
   const data = parseReport(message);
   const svg = renderSvg(data);
-  return sharp(Buffer.from(svg)).png({ compressionLevel: 9 }).toBuffer();
+  const fontBuffer = await loadFontBuffer();
+  const resvg = new Resvg(svg, {
+    font: {
+      fontBuffers: [fontBuffer],
+      defaultFontFamily: "Noto Sans",
+      loadSystemFonts: false,
+    },
+  });
+  return Buffer.from(resvg.render().asPng());
 }
 
 function buildCaption(message) {
   const data = parseReport(message);
   const lines = [
-    `${data.title}`,
+    data.title,
     `Branch: ${data.branch}`,
     `Shift: ${data.shift}`,
     `Teller: ${data.teller}`,
