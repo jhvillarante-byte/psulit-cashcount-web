@@ -1,4 +1,5 @@
 // POST /send-report — send the cash count report to the correct PSULIT Operations topic.
+// Production routing: PSulit Operations forum, branch-specific Cash Count topics.
 
 const { verifyToken, json, requirePost, parseBody } = require("./_auth");
 
