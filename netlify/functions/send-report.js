@@ -210,11 +210,16 @@ exports.handler = async (event) => {
   if (!branch) return json(400, { ok: false, error: "Could not determine Cash Count branch." });
 
   const botToken = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = process.env.TELEGRAM_CHAT_ID;
-  if (!botToken || !chatId) return json(500, { ok: false, error: "Telegram is not configured on the server." });
+  const chatId = branch === "Alphaland"
+    ? process.env.ALPHALAND_TELEGRAM_CHAT_ID
+    : process.env.SOLAIRE_TELEGRAM_CHAT_ID;
+  const threadId = branch === "Alphaland"
+    ? process.env.ALPHALAND_CASH_COUNT_TOPIC_ID
+    : process.env.SOLAIRE_CASH_COUNT_TOPIC_ID;
 
-  const threadId = branch === "Alphaland" ? process.env.ALPHALAND_CASH_COUNT_TOPIC_ID : process.env.SOLAIRE_CASH_COUNT_TOPIC_ID;
-  if (!threadId) return json(500, { ok: false, error: `Telegram topic is not configured for ${branch}.` });
+  if (!botToken || !chatId || !threadId) {
+    return json(500, { ok: false, error: `Telegram is not fully configured for ${branch}.` });
+  }
 
   try {
     const response = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
@@ -226,7 +231,7 @@ exports.handler = async (event) => {
     if (!telegram.ok) {
       console.error("Telegram rejected the message:", telegram.description);
       if (telegram.parameters && telegram.parameters.migrate_to_chat_id) {
-        return json(502, { ok: false, error: `Telegram chat ID changed to ${telegram.parameters.migrate_to_chat_id}. Update TELEGRAM_CHAT_ID.` });
+        return json(502, { ok: false, error: `Telegram chat ID changed to ${telegram.parameters.migrate_to_chat_id}. Update the ${branch} Telegram chat ID.` });
       }
       return json(502, { ok: false, error: `Telegram: ${telegram.description}` });
     }
@@ -237,6 +242,7 @@ exports.handler = async (event) => {
     return json(200, {
       ok: true,
       branch,
+      chat_id: chatId,
       message_thread_id: Number(threadId),
       telegram_message_id: telegram.result && telegram.result.message_id,
       sheet_sync: sheetSync,
