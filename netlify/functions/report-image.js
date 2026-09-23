@@ -1,11 +1,12 @@
 const sharp = require("sharp");
+const crypto = require("crypto");
 
 function esc(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
+    .replace(/\"/g, "&quot;")
     .replace(/'/g, "&apos;");
 }
 
@@ -78,7 +79,6 @@ function parseReport(message) {
     current.rows.push({ label, value });
   }
 
-  // Split LottoMatik out of Other Balances for a cleaner card.
   const other = sections.find(s => s.name === "OTHER BALANCES");
   if (other) {
     const lottoRows = other.rows.filter(r => /lottomatik/i.test(r.label));
@@ -113,9 +113,7 @@ function palette(name) {
 
 function lineSvg(x, y, label, value, width) {
   const rightX = x + width;
-  return `
-    <text x="${x}" y="${y}" font-size="25" font-weight="600" fill="#24364B">${esc(label)}</text>
-    <text x="${rightX}" y="${y}" text-anchor="end" font-size="25" font-weight="700" fill="#16273A">${esc(value)}</text>`;
+  return `\n    <text x="${x}" y="${y}" font-size="25" font-weight="600" fill="#24364B">${esc(label)}</text>\n    <text x="${rightX}" y="${y}" text-anchor="end" font-size="25" font-weight="700" fill="#16273A">${esc(value)}</text>`;
 }
 
 function renderSvg(data) {
@@ -141,7 +139,6 @@ function renderSvg(data) {
   body += `<rect x="0" y="0" width="${width}" height="${height}" fill="#EEF3F8"/>`;
   body += `<rect x="${margin}" y="${y}" width="${cardW}" height="${height - 116}" rx="30" fill="#FFFFFF"/>`;
 
-  // Brand header
   body += `<rect x="${margin}" y="${y}" width="${cardW}" height="118" rx="30" fill="#F8FBFD"/>`;
   body += `<rect x="${margin}" y="${y + 88}" width="${cardW}" height="30" fill="#F8FBFD"/>`;
   body += `<text x="${margin + 34}" y="${y + 43}" font-size="22" font-weight="900" letter-spacing="3" fill="#11864B">PSULIT</text>`;
@@ -186,22 +183,18 @@ function renderSvg(data) {
     y += 12;
   }
 
-  // Grand total
   body += `<rect x="${margin + 28}" y="${y}" width="${cardW - 56}" height="78" rx="18" fill="#EAF3FF"/>`;
   body += `<text x="${margin + 54}" y="${y + 50}" font-size="27" font-weight="900" fill="#245D9C">GRAND TOTAL</text>`;
   body += `<text x="${margin + cardW - 54}" y="${y + 50}" text-anchor="end" font-size="33" font-weight="900" fill="#17324D">${esc(data.grandTotal)}</text>`;
   y += 104;
 
-  body += `<text x="${margin + 38}" y="${y}" font-size="21" font-weight="800" fill="#168653">✓ Submitted & Locked</text>`;
+  body += `<text x="${margin + 38}" y="${y}" font-size="21" font-weight="800" fill="#168653">✓ Submitted &amp; Locked</text>`;
   y += 35;
   if (data.cctv) {
     body += `<text x="${margin + 38}" y="${y}" font-size="20" font-weight="600" fill="#9A6A00">CCTV footage for ${esc(data.cctv)} on record.</text>`;
   }
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
-    <style>text { font-family: Arial, Helvetica, sans-serif; }</style>
-    ${body}
-  </svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n    <style>text { font-family: Arial, Helvetica, sans-serif; }</style>\n    ${body}\n  </svg>`;
 }
 
 async function renderCashCountPng(message) {
@@ -224,18 +217,38 @@ function buildCaption(message) {
   return lines.join("\n").slice(0, 1024);
 }
 
+function multipartField(boundary, name, value) {
+  return Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`);
+}
+
 async function sendCashCountPhoto({ token, chatId, threadId, message }) {
   const png = await renderCashCountPng(message);
-  const form = new FormData();
-  form.append("chat_id", String(chatId));
-  form.append("message_thread_id", String(Number(threadId)));
-  form.append("caption", buildCaption(message));
-  form.append("photo", new Blob([png], { type: "image/png" }), "cash-count-report.png");
+  const caption = buildCaption(message);
+  const boundary = `----psulit-${crypto.randomBytes(12).toString("hex")}`;
+  const photoHeader = Buffer.from(
+    `--${boundary}\r\n` +
+    `Content-Disposition: form-data; name="photo"; filename="cash-count-report.png"\r\n` +
+    `Content-Type: image/png\r\n\r\n`
+  );
+  const closing = Buffer.from(`\r\n--${boundary}--\r\n`);
+  const body = Buffer.concat([
+    multipartField(boundary, "chat_id", String(chatId)),
+    multipartField(boundary, "message_thread_id", String(Number(threadId))),
+    multipartField(boundary, "caption", caption),
+    photoHeader,
+    png,
+    closing,
+  ]);
 
   const response = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, {
     method: "POST",
-    body: form,
+    headers: {
+      "Content-Type": `multipart/form-data; boundary=${boundary}`,
+      "Content-Length": String(body.length),
+    },
+    body,
   });
+
   const result = await response.json();
   if (!result.ok) throw new Error(result.description || "Telegram rejected the report image.");
   return result.result && result.result.message_id;
