@@ -1,6 +1,18 @@
-// POST /send-report — send the cash count report to the PSULIT Team group.
+// POST /send-report — send the cash count report to the correct PSULIT Operations topic.
 
 const { verifyToken, json, requirePost, parseBody } = require("./_auth");
+
+function normalizeBranch(value) {
+  const branch = String(value || "").trim().toLowerCase();
+  if (branch === "alphaland") return "Alphaland";
+  if (branch === "solaire") return "Solaire";
+  return "";
+}
+
+function branchFromMessage(message) {
+  const match = String(message || "").match(/Branch:\s*(Alphaland|Solaire)/i);
+  return match ? normalizeBranch(match[1]) : "";
+}
 
 exports.handler = async (event) => {
   const wrongMethod = requirePost(event);
@@ -21,22 +33,39 @@ exports.handler = async (event) => {
     return json(500, { ok: false, error: "Telegram is not configured on the server." });
   }
 
-  // Telegram rejects anything over 4096 characters.
   const text = String(body.message || "").slice(0, 4096);
   if (!text) return json(400, { ok: false, error: "Nothing to send." });
+
+  // Newer frontends can send branch explicitly. Older deployed versions are
+  // still supported by reading the branch from the report text.
+  const branch = normalizeBranch(body.branch) || branchFromMessage(text);
+  if (!branch) {
+    return json(400, { ok: false, error: "Could not determine Cash Count branch." });
+  }
+
+  const threadId = branch === "Alphaland"
+    ? process.env.ALPHALAND_CASH_COUNT_TOPIC_ID
+    : process.env.SOLAIRE_CASH_COUNT_TOPIC_ID;
+
+  if (!threadId) {
+    console.error(`Telegram topic ID is not configured for ${branch}.`);
+    return json(500, { ok: false, error: `Telegram topic is not configured for ${branch}.` });
+  }
 
   try {
     const res = await fetch(`https://api.telegram.org/bot${botToken}/sendMessage`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ chat_id: chatId, text }),
+      body: JSON.stringify({
+        chat_id: chatId,
+        message_thread_id: Number(threadId),
+        text,
+      }),
     });
     const data = await res.json();
 
     if (!data.ok) {
       console.error("Telegram rejected the message:", data.description);
-      // A supergroup upgrade changes the chat ID — surface that clearly,
-      // because it looks like a generic failure otherwise.
       if (data.parameters && data.parameters.migrate_to_chat_id) {
         return json(502, {
           ok: false,
@@ -46,7 +75,12 @@ exports.handler = async (event) => {
       return json(502, { ok: false, error: `Telegram: ${data.description}` });
     }
 
-    return json(200, { ok: true });
+    return json(200, {
+      ok: true,
+      branch,
+      message_thread_id: Number(threadId),
+      telegram_message_id: data.result && data.result.message_id,
+    });
   } catch (e) {
     console.error("send-report failed:", e.message);
     return json(502, { ok: false, error: "Could not reach Telegram." });
