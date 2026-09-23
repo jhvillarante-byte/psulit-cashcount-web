@@ -1,7 +1,8 @@
 const { Resvg } = require("@resvg/resvg-js");
 const crypto = require("crypto");
 
-const FONT_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/notosans/NotoSans%5Bwdth,wght%5D.ttf";
+const FONT_REGULAR_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/notosans/static/NotoSans-Regular.ttf";
+const FONT_BOLD_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/notosans/static/NotoSans-Bold.ttf";
 
 function esc(value) {
   return String(value ?? "")
@@ -29,7 +30,7 @@ function parseReport(message) {
   const text = clean(message);
   const lines = text.split("\n").map(x => x.trim()).filter(Boolean);
   const titleLine = lines[0] || "CASH COUNT";
-  const title = /CLOSING/i.test(titleLine) ? "CASH COUNT — CLOSING" : "CASH COUNT — OPENING";
+  const title = /CLOSING/i.test(titleLine) ? "CASH COUNT - CLOSING" : "CASH COUNT - OPENING";
   const branch = first(text, /Branch:\s*([^\n]+)/i);
   const shift = first(text, /Shift:\s*([^\n]+)/i);
   const teller = first(text, /Teller:\s*([^\n]+)/i);
@@ -68,7 +69,7 @@ function parseReport(message) {
       label = m[1].trim();
       value = m[2].trim();
     } else {
-      m = rawLine.match(/^(.+?)\s+—\s+(.+)$/);
+      m = rawLine.match(/^(.+?)\s+[—-]\s+(.+)$/);
       if (m) {
         label = m[1].trim();
         value = m[2].trim();
@@ -113,7 +114,7 @@ function palette(name) {
 
 function lineSvg(x, y, label, value, width) {
   const rightX = x + width;
-  return `\n    <text x="${x}" y="${y}" font-size="26" font-weight="600" fill="#24364B">${esc(label)}</text>\n    <text x="${rightX}" y="${y}" text-anchor="end" font-size="26" font-weight="700" fill="#16273A">${esc(value)}</text>`;
+  return `\n    <text x="${x}" y="${y}" font-size="26" font-weight="400" fill="#24364B">${esc(label)}</text>\n    <text x="${rightX}" y="${y}" text-anchor="end" font-size="26" font-weight="700" fill="#16273A">${esc(value)}</text>`;
 }
 
 function renderSvg(data) {
@@ -136,12 +137,12 @@ function renderSvg(data) {
   body += `<rect x="${margin}" y="${y}" width="${cardW}" height="${height - 116}" rx="30" fill="#FFFFFF"/>`;
   body += `<rect x="${margin}" y="${y}" width="${cardW}" height="118" rx="30" fill="#F8FBFD"/>`;
   body += `<rect x="${margin}" y="${y + 88}" width="${cardW}" height="30" fill="#F8FBFD"/>`;
-  body += `<text x="${margin + 34}" y="${y + 43}" font-size="24" font-weight="900" letter-spacing="3" fill="#11864B">PSULIT</text>`;
-  body += `<text x="${margin + 34}" y="${y + 84}" font-size="40" font-weight="900" fill="#17324D">${esc(data.title)}</text>`;
+  body += `<text x="${margin + 34}" y="${y + 43}" font-size="24" font-weight="700" letter-spacing="3" fill="#11864B">PSULIT</text>`;
+  body += `<text x="${margin + 34}" y="${y + 84}" font-size="40" font-weight="700" fill="#17324D">${esc(data.title)}</text>`;
   body += `<text x="${margin + cardW - 34}" y="${y + 47}" text-anchor="end" font-size="21" font-weight="700" fill="#6C7E90">Daily Report</text>`;
   if (data.isBackfill) {
     body += `<rect x="${margin + cardW - 190}" y="${y + 63}" width="156" height="34" rx="17" fill="#FFF2C7"/>`;
-    body += `<text x="${margin + cardW - 112}" y="${y + 87}" text-anchor="middle" font-size="17" font-weight="800" fill="#8A6500">BACKFILL</text>`;
+    body += `<text x="${margin + cardW - 112}" y="${y + 87}" text-anchor="middle" font-size="17" font-weight="700" fill="#8A6500">BACKFILL</text>`;
   }
   y += 145;
 
@@ -154,7 +155,7 @@ function renderSvg(data) {
   ];
   for (const [label, value] of details) {
     body += `<text x="${margin + 34}" y="${y}" font-size="23" font-weight="700" fill="#718196">${esc(label)}</text>`;
-    body += `<text x="${margin + 235}" y="${y}" font-size="23" font-weight="700" fill="#22364A">${esc(value)}</text>`;
+    body += `<text x="${margin + 235}" y="${y}" font-size="23" font-weight="400" fill="#22364A">${esc(value)}</text>`;
     y += 44;
   }
   y += 8;
@@ -165,7 +166,7 @@ function renderSvg(data) {
     if (!section.rows.length) continue;
     const [bg, fg] = palette(section.name);
     body += `<rect x="${margin + 28}" y="${y}" width="${cardW - 56}" height="${sectionHeaderH}" rx="14" fill="${bg}"/>`;
-    body += `<text x="${margin + 50}" y="${y + 39}" font-size="24" font-weight="900" letter-spacing="1" fill="${fg}">${esc(section.name)}</text>`;
+    body += `<text x="${margin + 50}" y="${y + 39}" font-size="24" font-weight="700" letter-spacing="1" fill="${fg}">${esc(section.name)}</text>`;
     y += sectionHeaderH + 26;
     for (const row of section.rows) {
       body += lineSvg(margin + 52, y, row.label, row.value, cardW - 104);
@@ -175,20 +176,20 @@ function renderSvg(data) {
   }
 
   body += `<rect x="${margin + 28}" y="${y}" width="${cardW - 56}" height="82" rx="18" fill="#EAF3FF"/>`;
-  body += `<text x="${margin + 54}" y="${y + 53}" font-size="28" font-weight="900" fill="#245D9C">GRAND TOTAL</text>`;
-  body += `<text x="${margin + cardW - 54}" y="${y + 53}" text-anchor="end" font-size="34" font-weight="900" fill="#17324D">${esc(data.grandTotal)}</text>`;
+  body += `<text x="${margin + 54}" y="${y + 53}" font-size="28" font-weight="700" fill="#245D9C">GRAND TOTAL</text>`;
+  body += `<text x="${margin + cardW - 54}" y="${y + 53}" text-anchor="end" font-size="34" font-weight="700" fill="#17324D">${esc(data.grandTotal)}</text>`;
   y += 110;
-  body += `<text x="${margin + 38}" y="${y}" font-size="22" font-weight="800" fill="#168653">Submitted &amp; Locked</text>`;
+  body += `<text x="${margin + 38}" y="${y}" font-size="22" font-weight="700" fill="#168653">Submitted &amp; Locked</text>`;
   y += 38;
   if (data.cctv) {
-    body += `<text x="${margin + 38}" y="${y}" font-size="21" font-weight="600" fill="#9A6A00">CCTV footage for ${esc(data.cctv)} on record.</text>`;
+    body += `<text x="${margin + 38}" y="${y}" font-size="21" font-weight="400" fill="#9A6A00">CCTV footage for ${esc(data.cctv)} on record.</text>`;
   }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n    <style>text { font-family: 'Noto Sans'; }</style>\n    ${body}\n  </svg>`;
 }
 
-async function loadFontBuffer() {
-  const response = await fetch(FONT_URL);
+async function fetchFont(url) {
+  const response = await fetch(url);
   if (!response.ok) throw new Error(`Could not load report font (${response.status}).`);
   return Buffer.from(await response.arrayBuffer());
 }
@@ -196,10 +197,13 @@ async function loadFontBuffer() {
 async function renderCashCountPng(message) {
   const data = parseReport(message);
   const svg = renderSvg(data);
-  const fontBuffer = await loadFontBuffer();
+  const [regularFont, boldFont] = await Promise.all([
+    fetchFont(FONT_REGULAR_URL),
+    fetchFont(FONT_BOLD_URL),
+  ]);
   const resvg = new Resvg(svg, {
     font: {
-      fontBuffers: [fontBuffer],
+      fontBuffers: [regularFont, boldFont],
       defaultFontFamily: "Noto Sans",
       loadSystemFonts: false,
     },
