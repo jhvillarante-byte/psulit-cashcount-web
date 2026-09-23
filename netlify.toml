@@ -20,3 +20,9 @@
   to = "/.netlify/functions/send-report"
   status = 200
   force = true
+
+[[redirects]]
+  from = "/backfill-opening"
+  to = "/.netlify/functions/backfill-opening"
+  status = 200
+  force = true
