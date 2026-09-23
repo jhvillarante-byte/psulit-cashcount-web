@@ -3,6 +3,11 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 
+const FOREX_CODES = new Set([
+  "PHP", "USD", "JPY", "KRW", "CNY", "EUR", "GBP", "AUD", "CAD", "CHF",
+  "NZD", "SGD", "HKD", "TWD", "THB", "MYR", "IDR", "AED", "SAR", "BND"
+]);
+
 function esc(value) {
   return String(value ?? "")
     .replace(/&/g, "&amp;")
@@ -19,9 +24,10 @@ function parseReport(message) {
   const text = clean(message);
   const lines = text.split("\n").map(x => x.trim()).filter(Boolean);
   const titleLine = lines[0] || "CASH COUNT";
-  const title = /CLOSING/i.test(titleLine) ? "CASH COUNT - CLOSING" : "CASH COUNT - OPENING";
-  const branch = first(text, /Branch:\s*([^\n]+)/i);
   const shift = first(text, /Shift:\s*([^\n]+)/i);
+  const countType = first(text, /Shift:\s*[^\n(]*\((Opening|Closing)\)/i);
+  const title = /CLOSING/i.test(countType || titleLine) ? "CASH COUNT - CLOSING" : "CASH COUNT - OPENING";
+  const branch = first(text, /Branch:\s*([^\n]+)/i);
   const teller = first(text, /Teller:\s*([^\n]+)/i);
   const timestamp = first(text, /Timestamp:\s*([^\n]+)/i);
   const ref = first(text, /Ref Code:\s*([^\n]+)/i);
@@ -30,19 +36,46 @@ function parseReport(message) {
   const isBackfill = /BACKFILL:/i.test(text);
   const sections = [];
   let current = null;
-  const pushSection = (name) => { current = { name, rows: [] }; sections.push(current); };
+
+  const getSection = (name) => {
+    let section = sections.find(s => s.name === name);
+    if (!section) {
+      section = { name, rows: [] };
+      sections.push(section);
+    }
+    current = section;
+    return section;
+  };
+
   for (const rawLine of lines.slice(1)) {
-    if (/^(Branch|Shift|Teller|Timestamp|Ref Code):/i.test(rawLine)) continue;
-    if (/^Grand Total:/i.test(rawLine)) continue;
+    if (/^(?:[^A-Za-z0-9]*)(Branch|Shift|Teller|Timestamp|Ref Code):/i.test(rawLine)) continue;
+    if (/^(?:[^A-Za-z0-9]*)Grand Total:/i.test(rawLine)) continue;
     if (/CCTV footage/i.test(rawLine)) continue;
     if (/^BACKFILL:/i.test(rawLine)) continue;
+    if (/Submitted\s*&\s*Locked/i.test(rawLine)) continue;
+    if (/^Rates:/i.test(rawLine) || /exchangerate-api\.com/i.test(rawLine)) continue;
+    if (/^[─-]{5,}$/.test(rawLine)) continue;
+
     const normalized = normalizeHeading(rawLine);
-    if (normalized === "FOREX CASH") { pushSection("FOREX CASH"); continue; }
-    if (normalized === "OTHER BALANCES") { pushSection("OTHER BALANCES"); continue; }
-    if (normalized === "BANK BALANCES") { pushSection("BANK BALANCES"); continue; }
-    if (normalized.includes("RECEIVABLES") && normalized.includes("OWED TO PSULIT")) { pushSection("RECEIVABLES"); continue; }
-    if (normalized.includes("PAYABLES") && normalized.includes("OWED BY PSULIT")) { pushSection("PAYABLES"); continue; }
-    if (normalized.includes("SCRATCH IT") && normalized.includes("PHYSICAL COUNT")) { pushSection("SCRATCH PHYSICAL COUNT"); continue; }
+    if (normalized === "FOREX CASH" || normalized === "FOREX") { getSection("FOREX CASH"); continue; }
+    if (normalized === "OTHER BALANCES" || normalized === "OTHERS") { getSection("OTHER BALANCES"); continue; }
+    if (normalized === "BANK BALANCES") { getSection("BANK BALANCES"); continue; }
+    if (normalized.includes("RECEIVABLES") && normalized.includes("OWED TO PSULIT")) { getSection("RECEIVABLES"); continue; }
+    if (normalized.includes("PAYABLES") && normalized.includes("OWED BY PSULIT")) { getSection("PAYABLES"); continue; }
+    if (normalized.includes("SCRATCH IT") && normalized.includes("PHYSICAL COUNT")) { getSection("SCRATCH PHYSICAL COUNT"); continue; }
+
+    const fx = rawLine.match(/^(?:[^A-Z0-9]*)([A-Z]{3}):\s*(.+)$/);
+    if (fx && FOREX_CODES.has(fx[1])) {
+      getSection("FOREX CASH").rows.push({ label: fx[1], value: fx[2].trim() });
+      continue;
+    }
+
+    const fund = rawLine.match(/^(?:[^A-Za-z0-9]*)(Hive|JuanPay|Scratch|LottoMatik Cash|LottoMatik Wallet):\s*(.+)$/i);
+    if (fund) {
+      getSection("OTHER BALANCES").rows.push({ label: fund[1], value: fund[2].trim() });
+      continue;
+    }
+
     if (!current) continue;
     let label = "", value = "";
     let m = rawLine.match(/^(.+?):\s*(.+)$/);
@@ -53,6 +86,7 @@ function parseReport(message) {
     }
     current.rows.push({ label, value });
   }
+
   const other = sections.find(s => s.name === "OTHER BALANCES");
   if (other) {
     const lottoRows = other.rows.filter(r => /lottomatik/i.test(r.label));
@@ -62,6 +96,10 @@ function parseReport(message) {
       sections.splice(idx + 1, 0, { name: "LOTTOMATIK", rows: lottoRows.map(r => ({ label: r.label.replace(/^LottoMatik\s*/i, "") || "Balance", value: r.value })) });
     }
   }
+
+  const order = ["FOREX CASH", "OTHER BALANCES", "LOTTOMATIK", "BANK BALANCES", "RECEIVABLES", "PAYABLES", "SCRATCH PHYSICAL COUNT"];
+  sections.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
+
   return { title, branch, shift, teller, timestamp, ref, grandTotal, cctv, isBackfill, sections };
 }
 
