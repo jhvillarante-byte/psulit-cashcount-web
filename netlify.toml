@@ -26,3 +26,9 @@
   to = "/.netlify/functions/backfill-opening"
   status = 200
   force = true
+
+[[redirects]]
+  from = "/preview-opening-report"
+  to = "/.netlify/functions/preview-opening-report"
+  status = 200
+  force = true
