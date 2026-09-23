@@ -1,6 +1,9 @@
 [build]
   functions = "netlify/functions"
 
+[functions]
+  included_files = ["node_modules/dejavu-fonts-ttf/ttf/*.ttf"]
+
 # Map the paths the app already calls onto the function files, so index.html
 # needs no change beyond pointing BACKEND at this same site.
 [[redirects]]
