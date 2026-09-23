@@ -1,0 +1,47 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>PSulit Cash Count Backfill</title>
+<style>
+body{font-family:Inter,system-ui,sans-serif;background:#f0f4f8;margin:0;padding:24px;color:#1e293b}.card{max-width:520px;margin:40px auto;background:#fff;border-radius:16px;padding:28px;box-shadow:0 4px 24px rgba(0,0,0,.1)}h1{font-size:22px;margin:0 0 8px;color:#1e3a5f}p{line-height:1.5;color:#475569}.note{background:#eff6ff;border:1px solid #bfdbfe;padding:12px 14px;border-radius:10px;margin:16px 0}.field{margin:18px 0}label{font-size:12px;font-weight:700;display:block;margin-bottom:8px;text-transform:uppercase;letter-spacing:.4px}input{width:100%;box-sizing:border-box;padding:12px;border:1.5px solid #cbd5e1;border-radius:9px;font-size:18px}button{width:100%;padding:13px 16px;border:0;border-radius:10px;background:#1e3a5f;color:#fff;font-weight:800;font-size:15px;cursor:pointer}button:disabled{opacity:.55;cursor:not-allowed}.status{margin-top:16px;padding:12px 14px;border-radius:10px;display:none}.ok{display:block;background:#dcfce7;border:1px solid #86efac;color:#166534}.err{display:block;background:#fef2f2;border:1px solid #fca5a5;color:#b91c1c}.small{font-size:12px;color:#64748b;margin-top:12px}</style>
+</head>
+<body>
+<div class="card">
+<h1>Backfill Today’s Morning Opening</h1>
+<p>This posts the original Sept. 23 morning opening Cash Counts into the new Telegram Cash Count & Daily Audit topics.</p>
+<div class="note">Alphaland and Solaire will both be posted. Existing Google Sheet records will not be changed.</div>
+<div class="field"><label for="pin">Owner PIN</label><input id="pin" type="password" inputmode="numeric" maxlength="4" placeholder="4-digit PIN"></div>
+<button id="btn" onclick="runBackfill()">Post Both Morning Opening Counts</button>
+<div id="status" class="status"></div>
+<div class="small">Use once only to avoid duplicate Telegram posts.</div>
+</div>
+<script>
+async function runBackfill(){
+  const btn=document.getElementById('btn');
+  const status=document.getElementById('status');
+  const pin=document.getElementById('pin').value.trim();
+  status.className='status'; status.textContent='';
+  if(!/^\d{4}$/.test(pin)){status.className='status err';status.textContent='Enter a valid 4-digit PIN.';return;}
+  btn.disabled=true; btn.textContent='Posting...';
+  try{
+    const login=await fetch('/auth/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})});
+    const auth=await login.json();
+    if(!login.ok||!auth.ok) throw new Error(auth.error||'Login failed.');
+    const res=await fetch('/backfill-opening',{method:'POST',headers:{'Content-Type':'application/json','Authorization':`Bearer ${auth.token}`},body:'{}'});
+    const data=await res.json();
+    if(!res.ok||!data.ok) throw new Error(data.error||'Backfill failed.');
+    status.className='status ok';
+    status.textContent='Done — Alphaland and Solaire morning opening counts were posted to their new Telegram topics.';
+    btn.textContent='Posted ✓';
+    document.getElementById('pin').value='';
+    return;
+  }catch(e){
+    status.className='status err'; status.textContent=e.message;
+  }
+  btn.disabled=false; btn.textContent='Post Both Morning Opening Counts';
+}
+</script>
+</body>
+</html>
