@@ -149,7 +149,7 @@ function renderSvg(data) {
   const width = 1000, margin = 52, cardW = width - margin * 2, rowH = 48, sectionHeaderH = 60;
   let contentH = 390;
   for (const s of data.sections) if (s.rows.length) contentH += sectionHeaderH + 28 + s.rows.length * rowH + 26;
-  contentH += 210;
+  contentH += 230;
   const height = Math.max(1260, contentH + 100);
   let y = 48, body = "";
   body += `<rect width="${width}" height="${height}" fill="#06090D"/>`;
@@ -177,20 +177,25 @@ function renderSvg(data) {
   for (const section of data.sections) {
     if (!section.rows.length) continue;
     const [bg, fg] = palette(section.name);
+    const sectionTitle = section.name === "FOREX CASH" ? "FOREIGN CURRENCY CASH (ON HAND)" : section.name;
     body += `<rect x="${margin + 28}" y="${y}" width="${cardW - 56}" height="${sectionHeaderH}" rx="14" fill="${bg}" stroke="#24313F" stroke-width="1"/>`;
-    body += `<text x="${margin + 50}" y="${y + 40}" font-size="24" font-weight="700" letter-spacing="1" fill="${fg}">${esc(section.name)}</text>`;
+    body += `<text x="${margin + 50}" y="${y + 40}" font-size="24" font-weight="700" letter-spacing="1" fill="${fg}">${esc(sectionTitle)}</text>`;
     y += sectionHeaderH + 28;
     for (const row of section.rows) {
       body += rowSvg(section.name, margin + 52, y, row.label, row.value, cardW - 104);
       y += rowH;
     }
     y += 16;
+
+    if (section.name === "FOREX CASH" && data.grandTotal) {
+      body += `<rect x="${margin + 28}" y="${y}" width="${cardW - 56}" height="92" rx="18" fill="#0D3322" stroke="#31C978" stroke-width="2"/>`;
+      body += `<text x="${margin + 52}" y="${y + 40}" font-size="22" font-weight="700" fill="#91E5B5">TOTAL (PHP EQUIVALENT)</text>`;
+      body += `<text x="${margin + cardW - 52}" y="${y + 42}" text-anchor="end" font-size="34" font-weight="700" fill="#FFFFFF">${esc(data.grandTotal)}</text>`;
+      body += `<text x="${margin + 52}" y="${y + 72}" font-size="16" font-weight="400" fill="#79C99D">Converted value of Foreign Currency Cash only</text>`;
+      y += 120;
+    }
   }
 
-  body += `<rect x="${margin + 28}" y="${y}" width="${cardW - 56}" height="90" rx="18" fill="#12345A" stroke="#2C6AA2" stroke-width="2"/>`;
-  body += `<text x="${margin + 54}" y="${y + 57}" font-size="28" font-weight="700" fill="#8DCAFF">GRAND TOTAL</text>`;
-  body += `<text x="${margin + cardW - 54}" y="${y + 57}" text-anchor="end" font-size="36" font-weight="700" fill="#FFFFFF">${esc(data.grandTotal)}</text>`;
-  y += 120;
   body += `<text x="${margin + 38}" y="${y}" font-size="22" font-weight="700" fill="#56D98A">Submitted &amp; Locked</text>`;
   y += 38;
   if (data.cctv) body += `<text x="${margin + 38}" y="${y}" font-size="21" font-weight="400" fill="#D2A94F">CCTV footage for ${esc(data.cctv)} on record.</text>`;
@@ -212,7 +217,7 @@ async function renderCashCountPng(message) {
 }
 function buildCaption(message) {
   const data = parseReport(message);
-  const lines = [data.title, `Branch: ${data.branch}`, `Shift: ${data.shift}`, `Teller: ${data.teller}`, `Ref Code: ${data.ref}`, `Grand Total: ${data.grandTotal}`];
+  const lines = [data.title, `Branch: ${data.branch}`, `Shift: ${data.shift}`, `Teller: ${data.teller}`, `Ref Code: ${data.ref}`, `Forex Total (PHP Equivalent): ${data.grandTotal}`];
   if (data.isBackfill) lines.push("Backfill: original submitted count");
   return lines.join("\n").slice(0, 1024);
 }
