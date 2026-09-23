@@ -1,8 +1,7 @@
 const { Resvg } = require("@resvg/resvg-js");
 const crypto = require("crypto");
-
-const FONT_REGULAR_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/notosans/static/NotoSans-Regular.ttf";
-const FONT_BOLD_URL = "https://raw.githubusercontent.com/google/fonts/main/ofl/notosans/static/NotoSans-Bold.ttf";
+const fs = require("fs");
+const path = require("path");
 
 function esc(value) {
   return String(value ?? "")
@@ -185,26 +184,24 @@ function renderSvg(data) {
     body += `<text x="${margin + 38}" y="${y}" font-size="21" font-weight="400" fill="#9A6A00">CCTV footage for ${esc(data.cctv)} on record.</text>`;
   }
 
-  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n    <style>text { font-family: 'Noto Sans'; }</style>\n    ${body}\n  </svg>`;
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">\n    <style>text { font-family: 'DejaVu Sans'; }</style>\n    ${body}\n  </svg>`;
 }
 
-async function fetchFont(url) {
-  const response = await fetch(url);
-  if (!response.ok) throw new Error(`Could not load report font (${response.status}).`);
-  return Buffer.from(await response.arrayBuffer());
+function loadBundledFonts() {
+  const fontPackageRoot = path.dirname(require.resolve("dejavu-fonts-ttf/package.json"));
+  const regular = fs.readFileSync(path.join(fontPackageRoot, "ttf", "DejaVuSans.ttf"));
+  const bold = fs.readFileSync(path.join(fontPackageRoot, "ttf", "DejaVuSans-Bold.ttf"));
+  return [regular, bold];
 }
 
 async function renderCashCountPng(message) {
   const data = parseReport(message);
   const svg = renderSvg(data);
-  const [regularFont, boldFont] = await Promise.all([
-    fetchFont(FONT_REGULAR_URL),
-    fetchFont(FONT_BOLD_URL),
-  ]);
+  const fontBuffers = loadBundledFonts();
   const resvg = new Resvg(svg, {
     font: {
-      fontBuffers: [regularFont, boldFont],
-      defaultFontFamily: "Noto Sans",
+      fontBuffers,
+      defaultFontFamily: "DejaVu Sans",
       loadSystemFonts: false,
     },
   });
