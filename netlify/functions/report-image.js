@@ -188,10 +188,13 @@ function renderSvg(data) {
 }
 
 function loadBundledFonts() {
-  const fontPackageRoot = path.dirname(require.resolve("dejavu-fonts-ttf/package.json"));
-  const regular = fs.readFileSync(path.join(fontPackageRoot, "ttf", "DejaVuSans.ttf"));
-  const bold = fs.readFileSync(path.join(fontPackageRoot, "ttf", "DejaVuSans-Bold.ttf"));
-  return [regular, bold];
+  const fontDir = path.resolve(__dirname, "../../node_modules/dejavu-fonts-ttf/ttf");
+  const regularPath = path.join(fontDir, "DejaVuSans.ttf");
+  const boldPath = path.join(fontDir, "DejaVuSans-Bold.ttf");
+  if (!fs.existsSync(regularPath) || !fs.existsSync(boldPath)) {
+    throw new Error("Bundled report fonts are missing from the Netlify function package.");
+  }
+  return [fs.readFileSync(regularPath), fs.readFileSync(boldPath)];
 }
 
 async function renderCashCountPng(message) {
