@@ -140,9 +140,9 @@ function rowSvg(sectionName, x, y, label, value, width) {
   const rightX = x + width;
   if (sectionName === "FOREX CASH") {
     const code = String(label || "").trim().toUpperCase().split(/\s+/)[0];
-    return `${flagSvg(code, x, y - 23)}<text x="${x + 56}" y="${y}" font-size="26" font-weight="600" fill="#EAF1F8">${esc(label)}</text><text x="${rightX}" y="${y}" text-anchor="end" font-size="26" font-weight="700" fill="#FFFFFF">${esc(value)}</text>`;
+    return `${flagSvg(code, x, y - 23)}<text x="${x + 56}" y="${y}" font-size="26" font-weight="600" fill="#EAF1F8">${esc(label)}</text><text x="${rightX}" y="${y}" text-anchor="end" font-size="26" font-weight="700" fill="#D6DAE0">${esc(value)}</text>`;
   }
-  return `<text x="${x}" y="${y}" font-size="26" font-weight="400" fill="#D4DEE9">${esc(label)}</text><text x="${rightX}" y="${y}" text-anchor="end" font-size="26" font-weight="700" fill="#FFFFFF">${esc(value)}</text>`;
+  return `<text x="${x}" y="${y}" font-size="26" font-weight="400" fill="#D4DEE9">${esc(label)}</text><text x="${rightX}" y="${y}" text-anchor="end" font-size="26" font-weight="700" fill="#D6DAE0">${esc(value)}</text>`;
 }
 
 function renderSvg(data) {
@@ -190,7 +190,7 @@ function renderSvg(data) {
     if (section.name === "FOREX CASH" && data.grandTotal) {
       body += `<rect x="${margin + 28}" y="${y}" width="${cardW - 56}" height="92" rx="18" fill="#0D3322" stroke="#31C978" stroke-width="2"/>`;
       body += `<text x="${margin + 52}" y="${y + 40}" font-size="22" font-weight="700" fill="#91E5B5">TOTAL (PHP EQUIVALENT)</text>`;
-      body += `<text x="${margin + cardW - 52}" y="${y + 42}" text-anchor="end" font-size="34" font-weight="700" fill="#FFFFFF">${esc(data.grandTotal)}</text>`;
+      body += `<text x="${margin + cardW - 52}" y="${y + 42}" text-anchor="end" font-size="34" font-weight="700" fill="#D6DAE0">${esc(data.grandTotal)}</text>`;
       body += `<text x="${margin + 52}" y="${y + 72}" font-size="16" font-weight="400" fill="#79C99D">Converted value of Foreign Currency Cash only</text>`;
       y += 120;
     }
