@@ -48,6 +48,14 @@ function classify(line) {
   return 'body';
 }
 
+function sectionColors(label) {
+  const t = String(label || '').toUpperCase();
+  if (t === 'SALES') return { fill: '#FFF2B3', text: '#6B4F00', accent: '#F6C945' };
+  if (t === 'WINNING CARDS / PAYOUTS') return { fill: '#FFE0E5', text: '#8B2842', accent: '#F26A8D' };
+  if (t === 'REPLENISHMENT') return { fill: '#DDF2FF', text: '#15506E', accent: '#58BCEB' };
+  return { fill: '#DCF4E5', text: '#1F6040', accent: '#4DBB78' };
+}
+
 function renderPng(text) {
   const raw = String(text || '').replace(/\r/g, '').split('\n');
   const lines = [];
@@ -71,13 +79,15 @@ function renderPng(text) {
     if (row.kind === 'blank') { y += 18; continue; }
     if (row.kind === 'title' && firstTitle) { firstTitle = false; continue; }
     if (row.kind === 'section') {
+      const c = sectionColors(row.text);
       y += 12;
-      rendered.push(`<rect x="${M + 28}" y="${y - 30}" width="${cardW - 56}" height="52" rx="12" fill="#235B45"/>`);
-      rendered.push(`<text x="${M + 50}" y="${y + 5}" font-size="23" font-weight="700" fill="#D8F0E3">${esc(row.text.toUpperCase())}</text>`);
+      rendered.push(`<rect x="${M + 28}" y="${y - 30}" width="${cardW - 56}" height="52" rx="14" fill="${c.fill}"/>`);
+      rendered.push(`<rect x="${M + 28}" y="${y - 30}" width="8" height="52" rx="4" fill="${c.accent}"/>`);
+      rendered.push(`<text x="${M + 54}" y="${y + 5}" font-size="23" font-weight="700" fill="${c.text}">${esc(row.text.toUpperCase())}</text>`);
       y += 46;
       continue;
     }
-    const color = row.kind === 'total' ? '#F4F8F5' : '#D9E5DE';
+    const color = row.kind === 'total' ? '#20302A' : '#45554E';
     const weight = row.kind === 'total' ? 700 : 400;
     const x = M + 48 + (row.continuation ? 22 : 0);
     rendered.push(`<text x="${x}" y="${y}" font-size="22" font-weight="${weight}" fill="${color}">${esc(row.text)}</text>`);
@@ -88,12 +98,16 @@ function renderPng(text) {
   const H = Math.max(900, y + 56);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
     <style>text{font-family:'DejaVu Sans',sans-serif}</style>
-    <rect width="${W}" height="${H}" fill="#0B1711"/>
-    <rect x="${M}" y="54" width="${cardW}" height="${H - 108}" rx="28" fill="#12241B" stroke="#2D4D3D" stroke-width="2"/>
-    <rect x="${M}" y="54" width="${cardW}" height="100" rx="28" fill="#183226"/>
-    <rect x="${M}" y="126" width="${cardW}" height="28" fill="#183226"/>
-    <text x="${M + 34}" y="92" font-size="24" font-weight="700" letter-spacing="3" fill="#76C893">PSULIT</text>
-    <text x="${M + 34}" y="133" font-size="34" font-weight="700" fill="#F4F8F5">SCRATCH IT — DAILY SUMMARY</text>
+    <rect width="${W}" height="${H}" fill="#F7F7F4"/>
+    <rect x="${M}" y="54" width="${cardW}" height="${H - 108}" rx="30" fill="#FFFFFF" stroke="#E2E7E4" stroke-width="2"/>
+    <rect x="${M}" y="54" width="${cardW}" height="100" rx="30" fill="#FFFFFF"/>
+    <rect x="${M + 26}" y="73" width="112" height="42" rx="21" fill="#E2F6E9"/>
+    <text x="${M + 46}" y="102" font-size="23" font-weight="700" letter-spacing="2" fill="#2E8B57">PSULIT</text>
+    <circle cx="${M + 166}" cy="94" r="11" fill="#F6C945"/>
+    <circle cx="${M + 196}" cy="94" r="11" fill="#F26A8D"/>
+    <circle cx="${M + 226}" cy="94" r="11" fill="#58BCEB"/>
+    <circle cx="${M + 256}" cy="94" r="11" fill="#4DBB78"/>
+    <text x="${M + 34}" y="140" font-size="34" font-weight="700" fill="#20302A">SCRATCH IT — DAILY SUMMARY</text>
     ${rendered.join('')}
   </svg>`;
 
