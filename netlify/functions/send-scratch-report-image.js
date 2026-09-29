@@ -130,7 +130,7 @@ exports.handler = async (event) => {
   if (event.httpMethod !== 'POST') return { statusCode: 405, body: JSON.stringify({ ok: false, error: 'POST required' }) };
   try {
     const body = JSON.parse(event.body || '{}');
-    const secret = process.env.SCRATCH_REPORT_IMAGE_SECRET || '';
+    const secret = process.env.AUDIT_IMAGE_SECRET || '';
     if (!secret || String(body.secret || '') !== secret) return { statusCode: 401, body: JSON.stringify({ ok: false, error: 'Unauthorized' }) };
     const token = process.env.TELEGRAM_BOT_TOKEN || '';
     if (!token) throw new Error('Telegram token missing.');
