@@ -72,12 +72,12 @@ function renderPng(text) {
     if (row.kind === 'title' && firstTitle) { firstTitle = false; continue; }
     if (row.kind === 'section') {
       y += 12;
-      rendered.push(`<rect x="${M + 28}" y="${y - 30}" width="${cardW - 56}" height="52" rx="12" fill="#13355A"/>`);
-      rendered.push(`<text x="${M + 50}" y="${y + 5}" font-size="23" font-weight="700" fill="#78BEFF">${esc(row.text.toUpperCase())}</text>`);
+      rendered.push(`<rect x="${M + 28}" y="${y - 30}" width="${cardW - 56}" height="52" rx="12" fill="#235B45"/>`);
+      rendered.push(`<text x="${M + 50}" y="${y + 5}" font-size="23" font-weight="700" fill="#D8F0E3">${esc(row.text.toUpperCase())}</text>`);
       y += 46;
       continue;
     }
-    const color = row.kind === 'total' ? '#F0F3F6' : '#D6DAE0';
+    const color = row.kind === 'total' ? '#F4F8F5' : '#D9E5DE';
     const weight = row.kind === 'total' ? 700 : 400;
     const x = M + 48 + (row.continuation ? 22 : 0);
     rendered.push(`<text x="${x}" y="${y}" font-size="22" font-weight="${weight}" fill="${color}">${esc(row.text)}</text>`);
@@ -88,12 +88,12 @@ function renderPng(text) {
   const H = Math.max(900, y + 56);
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${W}" height="${H}" viewBox="0 0 ${W} ${H}">
     <style>text{font-family:'DejaVu Sans',sans-serif}</style>
-    <rect width="${W}" height="${H}" fill="#06090D"/>
-    <rect x="${M}" y="54" width="${cardW}" height="${H - 108}" rx="28" fill="#0D1219" stroke="#1C2632" stroke-width="2"/>
-    <rect x="${M}" y="54" width="${cardW}" height="100" rx="28" fill="#101720"/>
-    <rect x="${M}" y="126" width="${cardW}" height="28" fill="#101720"/>
-    <text x="${M + 34}" y="92" font-size="24" font-weight="700" letter-spacing="3" fill="#31C978">PSULIT</text>
-    <text x="${M + 34}" y="133" font-size="34" font-weight="700" fill="#F0F3F6">SCRATCH IT — DAILY SUMMARY</text>
+    <rect width="${W}" height="${H}" fill="#0B1711"/>
+    <rect x="${M}" y="54" width="${cardW}" height="${H - 108}" rx="28" fill="#12241B" stroke="#2D4D3D" stroke-width="2"/>
+    <rect x="${M}" y="54" width="${cardW}" height="100" rx="28" fill="#183226"/>
+    <rect x="${M}" y="126" width="${cardW}" height="28" fill="#183226"/>
+    <text x="${M + 34}" y="92" font-size="24" font-weight="700" letter-spacing="3" fill="#76C893">PSULIT</text>
+    <text x="${M + 34}" y="133" font-size="34" font-weight="700" fill="#F4F8F5">SCRATCH IT — DAILY SUMMARY</text>
     ${rendered.join('')}
   </svg>`;
 
