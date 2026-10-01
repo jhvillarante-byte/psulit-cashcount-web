@@ -187,6 +187,15 @@ async function sendTextFallback({ token, chatId, threadId, text }) {
   return result.result && result.result.message_id;
 }
 
+function sheetSyncWithShortWait(message, branch) {
+  const sync = syncCashCountSheet(message, branch).catch(error => ({
+    status: "failed",
+    error: error instanceof Error ? error.message : String(error),
+  }));
+  const timeout = new Promise(resolve => setTimeout(() => resolve({ status: "pending" }), 1500));
+  return Promise.race([sync, timeout]);
+}
+
 exports.handler = async (event) => {
   const wrongMethod = requirePost(event);
   if (wrongMethod) return wrongMethod;
@@ -206,16 +215,13 @@ exports.handler = async (event) => {
     return json(500, { ok: false, error: `Telegram is not fully configured for ${branch}.` });
   }
 
-  // The sheet sync and Telegram delivery are independent. A temporary Google
-  // Sheets bridge failure must never prevent an operational Cash Count from
-  // reaching Telegram. The sync still runs on every submission and remains
-  // duplicate-safe through the report reference / sync keys.
-  const sheetSyncPromise = syncCashCountSheet(fullText, branch);
+  const sheetSyncPromise = sheetSyncWithShortWait(fullText, branch);
 
-  let telegramMessageId;
-  let delivery = "image";
-  let imageError = "";
   try {
+    let telegramMessageId;
+    let delivery = "image";
+    let imageError = "";
+
     try {
       telegramMessageId = await sendCashCountPhoto({ token, chatId, threadId, message: fullText });
     } catch (error) {
@@ -236,15 +242,12 @@ exports.handler = async (event) => {
       message_thread_id: Number(threadId),
       telegram_message_id: telegramMessageId,
       sheet_sync: sheetSync,
-      warning: sheetSync.status === "synced" ? undefined : `Telegram sent, but live Cash Count sheet sync is ${sheetSync.status}.`,
+      warning: sheetSync.status === "synced" ? undefined : `Telegram sent; Cash Count sheet sync is ${sheetSync.status}.`,
     });
   } catch (error) {
-    const sheetSync = await sheetSyncPromise;
     return json(502, {
       ok: false,
       telegram_sent: false,
-      sheet_saved: sheetSync.status === "synced",
-      sheet_sync: sheetSync,
       error: error instanceof Error ? error.message : "Could not reach Telegram.",
     });
   }
