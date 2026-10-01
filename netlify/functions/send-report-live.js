@@ -187,15 +187,6 @@ async function sendTextFallback({ token, chatId, threadId, text }) {
   return result.result && result.result.message_id;
 }
 
-function sheetSyncWithShortWait(message, branch) {
-  const sync = syncCashCountSheet(message, branch).catch(error => ({
-    status: "failed",
-    error: error instanceof Error ? error.message : String(error),
-  }));
-  const timeout = new Promise(resolve => setTimeout(() => resolve({ status: "pending" }), 1500));
-  return Promise.race([sync, timeout]);
-}
-
 exports.handler = async (event) => {
   const wrongMethod = requirePost(event);
   if (wrongMethod) return wrongMethod;
@@ -215,7 +206,10 @@ exports.handler = async (event) => {
     return json(500, { ok: false, error: `Telegram is not fully configured for ${branch}.` });
   }
 
-  const sheetSyncPromise = sheetSyncWithShortWait(fullText, branch);
+  // Start the live-sheet sync immediately and run it in parallel with Telegram.
+  // The response still succeeds based on Telegram delivery, but we wait for the
+  // live sheet result so the exact accepted Cash Count is reliably recorded.
+  const sheetSyncPromise = syncCashCountSheet(fullText, branch);
 
   try {
     let telegramMessageId;
@@ -245,9 +239,15 @@ exports.handler = async (event) => {
       warning: sheetSync.status === "synced" ? undefined : `Telegram sent; Cash Count sheet sync is ${sheetSync.status}.`,
     });
   } catch (error) {
+    const sheetSync = await sheetSyncPromise.catch(sheetError => ({
+      status: "failed",
+      error: sheetError instanceof Error ? sheetError.message : String(sheetError),
+    }));
     return json(502, {
       ok: false,
       telegram_sent: false,
+      sheet_saved: sheetSync.status === "synced",
+      sheet_sync: sheetSync,
       error: error instanceof Error ? error.message : "Could not reach Telegram.",
     });
   }
