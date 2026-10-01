@@ -199,22 +199,18 @@ exports.handler = async (event) => {
   const branch = normalizeBranch(body.branch) || branchFromMessage(fullText);
   if (!branch) return json(400, { ok: false, error: "Could not determine Cash Count branch." });
 
-  // Consistency gate: no Telegram Cash Count is posted unless the same
-  // submission is first present in the structured live sheet.
-  const sheetSync = await syncCashCountSheet(fullText, branch);
-  if (sheetSync.status !== "synced") {
-    return json(502, {
-      ok: false,
-      telegram_sent: false,
-      sheet_sync: sheetSync,
-      error: `Live Cash Count sheet did not sync (${sheetSync.status}). Telegram was not sent. Please retry; duplicate sheet rows are automatically blocked.`,
-    });
-  }
-
   const token = process.env.TELEGRAM_BOT_TOKEN;
   const chatId = branch === "Alphaland" ? process.env.ALPHALAND_TELEGRAM_CHAT_ID : process.env.SOLAIRE_TELEGRAM_CHAT_ID;
   const threadId = branch === "Alphaland" ? process.env.ALPHALAND_CASH_COUNT_TOPIC_ID : process.env.SOLAIRE_CASH_COUNT_TOPIC_ID;
-  if (!token || !chatId || !threadId) return json(500, { ok: false, error: `Telegram is not fully configured for ${branch}.`, sheet_sync: sheetSync });
+  if (!token || !chatId || !threadId) {
+    return json(500, { ok: false, error: `Telegram is not fully configured for ${branch}.` });
+  }
+
+  // The sheet sync and Telegram delivery are independent. A temporary Google
+  // Sheets bridge failure must never prevent an operational Cash Count from
+  // reaching Telegram. The sync still runs on every submission and remains
+  // duplicate-safe through the report reference / sync keys.
+  const sheetSyncPromise = syncCashCountSheet(fullText, branch);
 
   let telegramMessageId;
   let delivery = "image";
@@ -227,8 +223,12 @@ exports.handler = async (event) => {
       delivery = "text_fallback";
       telegramMessageId = await sendTextFallback({ token, chatId, threadId, text: fullText });
     }
+
+    const sheetSync = await sheetSyncPromise;
     return json(200, {
       ok: true,
+      telegram_sent: true,
+      sheet_saved: sheetSync.status === "synced",
       branch,
       delivery,
       image_error: imageError || undefined,
@@ -236,11 +236,14 @@ exports.handler = async (event) => {
       message_thread_id: Number(threadId),
       telegram_message_id: telegramMessageId,
       sheet_sync: sheetSync,
+      warning: sheetSync.status === "synced" ? undefined : `Telegram sent, but live Cash Count sheet sync is ${sheetSync.status}.`,
     });
   } catch (error) {
+    const sheetSync = await sheetSyncPromise;
     return json(502, {
       ok: false,
       telegram_sent: false,
+      sheet_saved: sheetSync.status === "synced",
       sheet_sync: sheetSync,
       error: error instanceof Error ? error.message : "Could not reach Telegram.",
     });
