@@ -20,7 +20,7 @@
 
 [[redirects]]
   from = "/send-report"
-  to = "/.netlify/functions/send-report-v2"
+  to = "/.netlify/functions/send-report-live"
   status = 200
   force = true
 
