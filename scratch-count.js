@@ -43,7 +43,7 @@
     const mark = bold ? "*" : "";
     return [
       `🎟️ ${mark}SCRATCH IT — PHYSICAL COUNT${mark}`,
-      ...PRODUCTS.map(({ key, label }) => `${values[key]} pcs` ? `${label}: ${values[key]} pcs` : `${label}: 0 pcs`),
+      ...PRODUCTS.map(({ key, label }) => `${label}: ${values[key]} pcs`),
     ].join("\n");
   }
 
