@@ -43,7 +43,7 @@
     const mark = bold ? "*" : "";
     return [
       `🎟️ ${mark}SCRATCH IT — PHYSICAL COUNT${mark}`,
-      ...PRODUCTS.map(({ key, label }) => `${label}: ${values[key]} pcs`),
+      ...PRODUCTS.map(({ key, label }) => `${values[key]} pcs` ? `${label}: ${values[key]} pcs` : `${label}: 0 pcs`),
     ].join("\n");
   }
 
@@ -124,3 +124,39 @@
 
   return { PRODUCTS, LOTTOMATIK_DENOMS, isRequired, validate, formatReport, validateLottomatik, formatLottomatikReport, validateLottomatikCash, formatLottomatikCashReport, buildLottomatikCarryRecord, normalizeLottomatikCarryRecord };
 });
+
+// Slack is retired for Cash Count. Keep the old page compatible without
+// making any Slack network request, and remove legacy Slack status badges.
+(function retireCashCountSlack(root) {
+  if (!root || typeof root.fetch !== "function" || !root.document) return;
+  const nativeFetch = root.fetch.bind(root);
+
+  root.fetch = function cashCountFetch(input, init) {
+    const url = typeof input === "string" ? input : (input && input.url) || "";
+    if (/\/send-slack(?:\?|$)/.test(url)) {
+      return Promise.resolve(new Response(JSON.stringify({ ok: true, retired: true }), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      }));
+    }
+    return nativeFetch(input, init);
+  };
+
+  function removeSlackStatus() {
+    root.document.querySelectorAll(".telegram-badge, .telegram-fail").forEach(node => {
+      const text = node.textContent || "";
+      if (/Slack|#psulit-.*-general/i.test(text)) node.remove();
+    });
+  }
+
+  function start() {
+    removeSlackStatus();
+    new MutationObserver(removeSlackStatus).observe(root.document.documentElement, {
+      childList: true,
+      subtree: true,
+    });
+  }
+
+  if (root.document.readyState === "loading") root.document.addEventListener("DOMContentLoaded", start, { once: true });
+  else start();
+})(typeof globalThis !== "undefined" ? globalThis : this);
