@@ -1656,53 +1656,39 @@ async function handleSubmit() {
   isSubmitting = true;
   document.getElementById("err-declare").textContent="";
   const btn=document.getElementById("submit-btn");
-  btn.textContent="Sending...";
+  btn.textContent="Saving & Sending...";
   btn.disabled=true;
 
-  const slackMsg = buildSlackMsg();
   const tgMsg = await buildTelegramMsg();
-
   saveAllBalances();
-  let slackOk=false, tgOk=false;
 
-  // Send the Cash Count to the live-sheet sync endpoint and Telegram.
-  const summary = await buildSlackSummary();
-  const breakdown = buildSlackBreakdown();
-  for(let attempt=0; attempt<3; attempt++) {
-    try {
-      const res = await fetch(`${BACKEND}/send-slack`, {
-        method: "POST",
-        headers: {"Content-Type": "application/json", "Authorization": `Bearer ${state.sessionToken}`},
-        body: JSON.stringify({branch: state.branch, message: summary, breakdown: breakdown})
-      });
-      const data = await res.json();
-      if(data.ok){ slackOk = true; break; }
-    } catch(e){}
-    if(!slackOk && attempt<2) await new Promise(r=>setTimeout(r,5000));
-  }
-
-  // Send to Telegram through the authenticated backend so the bot token stays server-side
+  let tgOk=false, sheetOk=false, syncInfo=null, sendError="";
   try {
     const res = await fetch(`${BACKEND}/send-report-live`, {
       method: "POST",
       headers: {"Content-Type": "application/json", "Authorization": `Bearer ${state.sessionToken}`},
       body: JSON.stringify({ branch: state.branch, message: tgMsg })
     });
-    const data = await res.json();
-    tgOk = Boolean(data.ok);
-  } catch(e){ tgOk = false; }
+    const data = await res.json().catch(()=>({}));
+    tgOk = Boolean(data.ok && data.telegram_sent !== false);
+    sheetOk = Boolean(data.sheet_saved || data.sheet_sync?.status === "synced");
+    syncInfo = data.sheet_sync || null;
+    if(!res.ok && data.error) sendError = data.error;
+  } catch(e){ sendError = e?.message || "Could not reach Cash Count server."; }
 
-  const ok = slackOk || tgOk;
+  const ok = tgOk && sheetOk;
   document.getElementById("main-card").style.display="none";
   const sc=document.getElementById("success-card");
   sc.style.display="block";
   document.getElementById("success-icon").textContent=ok?"✓":"!";
   document.getElementById("success-icon").style.background=ok?"#16a34a":"#dc2626";
-  document.getElementById("success-title").textContent=ok?"Submitted Successfully!":"Submission Failed";
-  const statusHTML =
-    (slackOk ? `<div class="telegram-badge">💬 Sent to #psulit-${state.branch.toLowerCase()}-general ✓</div>` : `<div class="telegram-fail">⚠️ Slack delivery failed.</div>`)
-    + (tgOk ? `<div class="telegram-badge" style="margin-top:6px">📨 Sent to PSULIT Team Telegram ✓</div>` : `<div class="telegram-fail" style="margin-top:6px">⚠️ Telegram delivery failed.</div>`);
+  document.getElementById("success-title").textContent=ok?"Submitted Successfully!":"Submission Needs Attention";
+
+  let statusHTML =
+    (tgOk ? `<div class="telegram-badge">📨 Sent to PSULIT Team Telegram ✓</div>` : `<div class="telegram-fail">⚠️ Telegram delivery failed${sendError ? ": "+sendError : "."}</div>`)
+    + (sheetOk ? `<div class="telegram-badge" style="margin-top:6px">📊 Saved to live Google Sheet ✓</div>` : `<div class="telegram-fail" style="margin-top:6px">⚠️ Live Google Sheet save failed${syncInfo?.error ? ": "+syncInfo.error : "."}</div>`);
   document.getElementById("tg-status-badge").innerHTML=statusHTML;
+
   const ss=document.getElementById("success-summary");
   ss.innerHTML=`
     <div class="summary-row"><span>Reference</span><strong style="font-family:monospace">${state.uniqueCode}</strong></div>
