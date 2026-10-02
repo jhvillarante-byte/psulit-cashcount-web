@@ -25,6 +25,12 @@
   force = true
 
 [[redirects]]
+  from = "/send-report-live"
+  to = "/.netlify/functions/send-report-live"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/backfill-opening"
   to = "/.netlify/functions/backfill-opening"
   status = 200
