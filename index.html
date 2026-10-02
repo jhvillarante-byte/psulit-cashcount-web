@@ -452,7 +452,7 @@
     <h2>Declaration & Submission</h2>
     <div class="summary-card" id="summary-card"></div>
     <div class="cur-summary-box" id="cur-summary-box"></div>
-    <div class="telegram-note">💬 Upon submission, a cash count report will be sent to your branch Slack channel.</div>
+    <div class="telegram-note">📊 Upon submission, the Cash Count is saved to the live Google Sheet and sent to your branch Telegram topic.</div>
     <div class="declaration-box">
       <label class="check-label">
         <input type="checkbox" id="final-declare">
@@ -1665,7 +1665,7 @@ async function handleSubmit() {
   saveAllBalances();
   let slackOk=false, tgOk=false;
 
-  // Send summary to Slack, then breakdown as thread reply (with retry)
+  // Send the Cash Count to the live-sheet sync endpoint and Telegram.
   const summary = await buildSlackSummary();
   const breakdown = buildSlackBreakdown();
   for(let attempt=0; attempt<3; attempt++) {
@@ -1683,10 +1683,10 @@ async function handleSubmit() {
 
   // Send to Telegram through the authenticated backend so the bot token stays server-side
   try {
-    const res = await fetch(`${BACKEND}/send-report`, {
+    const res = await fetch(`${BACKEND}/send-report-live`, {
       method: "POST",
       headers: {"Content-Type": "application/json", "Authorization": `Bearer ${state.sessionToken}`},
-      body: JSON.stringify({ message: tgMsg.slice(0, 4096) })
+      body: JSON.stringify({ branch: state.branch, message: tgMsg })
     });
     const data = await res.json();
     tgOk = Boolean(data.ok);
