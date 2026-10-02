@@ -133,3 +133,120 @@ function safe_(value) {
 function output_(value) {
   return ContentService.createTextOutput(JSON.stringify(value)).setMimeType(ContentService.MimeType.JSON);
 }
+
+
+/**
+ * Read-only audit endpoint for the PSULIT Audit app.
+ *
+ * GET parameters:
+ *   branch=Alphaland|Solaire
+ *   date=YYYY-MM-DD
+ *
+ * Returns rows from the branch Cash Count, Transactions, and Expense & Cash
+ * Movement sheets. The response is intentionally generic so the Audit app can
+ * map columns by header name without depending on fixed column positions.
+ *
+ * Authentication uses the existing CASH_COUNT_WEBHOOK_SECRET property:
+ *   ?branch=Alphaland&date=2026-10-01&secret=...
+ */
+function doGet(e) {
+  try {
+    const params = (e && e.parameter) || {};
+    const expectedSecret = PropertiesService.getScriptProperties().getProperty('CASH_COUNT_WEBHOOK_SECRET');
+
+    if (!expectedSecret) return output_({ ok: false, error: 'CASH_COUNT_WEBHOOK_SECRET is not configured.' });
+    if (!params.secret || params.secret !== expectedSecret) return output_({ ok: false, error: 'Unauthorized.' });
+
+    const branch = String(params.branch || '').trim();
+    const date = String(params.date || '').trim();
+
+    if (branch !== 'Alphaland' && branch !== 'Solaire') {
+      return output_({ ok: false, error: 'Unknown branch.' });
+    }
+    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) {
+      return output_({ ok: false, error: 'Invalid date. Use YYYY-MM-DD.' });
+    }
+
+    const spreadsheet = SpreadsheetApp.openById(CASH_COUNT_SPREADSHEET_ID);
+    const sheetNames = [
+      branch + ' Cash Count',
+      branch + ' Transactions',
+      branch + ' Expense & Cash Movement'
+    ];
+
+    const sheets = {};
+    sheetNames.forEach(function(sheetName) {
+      const sheet = spreadsheet.getSheetByName(sheetName);
+      if (!sheet) {
+        sheets[sheetName] = { headers: [], rows: [], missing: true };
+        return;
+      }
+
+      const values = sheet.getDataRange().getDisplayValues();
+      if (!values.length) {
+        sheets[sheetName] = { headers: [], rows: [] };
+        return;
+      }
+
+      const headers = values[0].map(function(v) { return String(v || '').trim(); });
+      const rows = values.slice(1).map(function(row) {
+        const obj = {};
+        headers.forEach(function(header, i) {
+          if (header) obj[header] = row[i] === undefined ? '' : row[i];
+        });
+        return obj;
+      }).filter(function(row) {
+        return rowMatchesDate_(row, date);
+      });
+
+      sheets[sheetName] = { headers: headers, rows: rows };
+    });
+
+    return output_({
+      ok: true,
+      source: 'Google Sheets — PSULIT OPERATIONS APP LOG 2026',
+      branch: branch,
+      date: date,
+      sheets: sheets
+    });
+  } catch (error) {
+    console.error(error && error.stack ? error.stack : error);
+    return output_({ ok: false, error: String(error && error.message ? error.message : error) });
+  }
+}
+
+function rowMatchesDate_(row, date) {
+  const candidates = [
+    'Business Date',
+    'Date',
+    'Transaction Date',
+    'Submitted At',
+    'Timestamp',
+    'Created At',
+    'Official Timestamp'
+  ];
+
+  for (let i = 0; i < candidates.length; i += 1) {
+    const key = candidates[i];
+    if (!Object.prototype.hasOwnProperty.call(row, key)) continue;
+    const raw = String(row[key] || '').trim();
+    if (!raw) continue;
+
+    if (/^\\d{4}-\\d{2}-\\d{2}$/.test(raw) && raw === date) return true;
+
+    const parsed = new Date(raw);
+    if (!isNaN(parsed.getTime())) {
+      const yyyy = Utilities.formatDate(parsed, Session.getScriptTimeZone() || 'Asia/Manila', 'yyyy-MM-dd');
+      if (yyyy === date) return true;
+    }
+
+    // Handle common Philippine sheet display formats such as 10/01/2026 09:57:07.
+    const m = raw.match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{4})/);
+    if (m) {
+      const normalized = m[3] + '-' + String(m[1]).padStart(2, '0') + '-' + String(m[2]).padStart(2, '0');
+      if (normalized === date) return true;
+    }
+  }
+
+  return false;
+}
