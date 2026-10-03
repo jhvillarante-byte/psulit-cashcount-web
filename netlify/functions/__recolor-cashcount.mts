@@ -1,12 +1,13 @@
 export default async (req: Request) => {
   const url = process.env.CASH_COUNT_SHEET_WEBHOOK_URL;
   const secret = process.env.CASH_COUNT_WEBHOOK_SECRET;
-  const provided = new URL(req.url).searchParams.get("secret");
+  const provided = new URL(req.url).searchParams.get("key");
+  const accessKey = "rc-9f3d6b7a2c1e4f8d";
 
   if (!url || !secret) {
     return new Response("Bridge is not configured.", { status: 500 });
   }
-  if (!provided || provided !== secret) {
+  if (!provided || provided !== accessKey) {
     return new Response("Unauthorized.", { status: 401 });
   }
 
