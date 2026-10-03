@@ -256,8 +256,11 @@ function colorForBusinessDate_(businessDate) {
     return BUSINESS_DATE_COLORS[0];
   }
 
+  // Keep the same date -> color mapping across Cash Count and Transactions.
+  // Sept 23, 2026 starts the cycle at soft blue.
+  const epochDay = Math.floor(Date.UTC(2026, 8, 23) / 86400000);
   const utcDay = Math.floor(Date.UTC(parts[0], parts[1] - 1, parts[2]) / 86400000);
-  const index = ((utcDay % BUSINESS_DATE_COLORS.length) + BUSINESS_DATE_COLORS.length) % BUSINESS_DATE_COLORS.length;
+  const index = (((utcDay - epochDay) % BUSINESS_DATE_COLORS.length) + BUSINESS_DATE_COLORS.length) % BUSINESS_DATE_COLORS.length;
   return BUSINESS_DATE_COLORS[index];
 }
 
