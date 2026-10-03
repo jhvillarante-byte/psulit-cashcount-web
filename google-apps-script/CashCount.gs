@@ -135,6 +135,13 @@ function sortCashCountSheet_(sheet) {
   ]);
 }
 
+function recolorAllBusinessDateSheets() {
+  const spreadsheet = SpreadsheetApp.openById(CASH_COUNT_SPREADSHEET_ID);
+  ['Alphaland', 'Solaire'].forEach(function(branch) {
+    recolorOperationalSheetsByBusinessDate_(spreadsheet, branch);
+  });
+}
+
 function recolorOperationalSheetsByBusinessDate_(spreadsheet, branch) {
   [
     branch + ' Cash Count',
