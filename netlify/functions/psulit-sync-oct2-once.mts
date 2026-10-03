@@ -1,5 +1,5 @@
 const ID="1_msQClr0yfx_jTKeEfop6lnfNvBPd-sNNMkgLnBgsrU";
-const DATA=[
+const ALL_DATA=[
 {d:"2026-09-23",t:"09/23/2026 10:49:06",r:"PSC-MUDI7ZNG-VN9A",s:"Morning",ct:"Opening",tel:"Irene Maligat",fx:{PHP:324307.59,USD:14255,JPY:90000,EUR:100,AUD:100,CHF:30,TWD:35300},h:96172.10,bank:{PHP:50000,USD:500},rec:[["8Ventures","PHP",1000000]],gt:1334599.60,ft:1334599.60},
 {d:"2026-09-23",t:"09/23/2026 20:16:50",r:"PSC-MUE2I3K3-GFHX",s:"Night",ct:"Opening",tel:"Joan Legaspi",fx:{PHP:502740.69,USD:11265,SGD:500,EUR:100,AUD:600,TWD:36400,CHF:30,HKD:80},h:96272.10,bank:{PHP:50000,USD:500},rec:[["8Ventures","PHP",1000000]],gt:1339989.35,ft:1339989.35},
 {d:"2026-09-23",t:"09/23/2026 20:35:11",r:"PSC-MUE35PK3-EHRD",s:"Morning",ct:"Closing",tel:"Irene Maligat",fx:{PHP:502740.69,USD:11265,SGD:500,EUR:100,AUD:600,TWD:36400,CHF:30,HKD:80},h:96272.10,bank:{PHP:50000,USD:500},rec:[["8Ventures","PHP",1000000]],gt:1339989.35,ft:1339989.35},
@@ -45,7 +45,7 @@ const DATA=[
 ];
 const slug=v=>String(v).toUpperCase().replace(/[^A-Z0-9]+/g,"-").replace(/^-|-$/g,"");
 function rows(x){
- const c={submittedAt:x.t,businessDate:x.d,branch:"Solaire",countType:x.ct,shift:x.s,teller:x.tel,reference:x.r,sourceApp:"Cash Count App"};
+ const c={submittedAt:x.t,businessDate:businessDate_(x.t),branch:"Solaire",countType:x.ct,shift:x.s,teller:x.tel,reference:x.r,sourceApp:"Cash Count App"};
  const a=[]; const add=(k,f)=>a.push({syncKey:x.r+":"+k,...c,...f});
  for(const[k,v]of Object.entries(x.fx)) add("FOREX-"+slug(k),{category:"Forex Cash",currency:k,fundAccount:"Forex Drawer",amount:v,phpEquivalent:k==="PHP"?v:"",quantityUnits:"",notes:"Historical image backfill"});
  if(x.h!=null) add("FUND-HIVE",{category:"Fund Balance",currency:"PHP",fundAccount:"Hive",amount:x.h,phpEquivalent:x.h,quantityUnits:"",notes:"Historical image backfill"});
