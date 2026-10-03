@@ -51,7 +51,7 @@ function businessDate_(stamp){
  if(timePart < "05:00:00") d.setUTCDate(d.getUTCDate()-1);
  return d.toISOString().slice(0,10);
 }
-const DATA=ALL_DATA.filter(x=>businessDate_(x.t)<="2026-09-28");
+const DATA=ALL_DATA.filter(x=>businessDate_(x.t)<="2026-10-02");
 function rows(x){
  const c={submittedAt:x.t,businessDate:businessDate_(x.t),branch:"Solaire",countType:x.ct,shift:x.s,teller:x.tel,reference:x.r,sourceApp:"Cash Count App"};
  const a=[]; const add=(k,f)=>a.push({syncKey:x.r+":"+k,...c,...f});
