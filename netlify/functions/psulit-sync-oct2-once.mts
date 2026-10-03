@@ -67,14 +67,12 @@ export default async()=>{
  const u=Netlify.env.get("CASH_COUNT_SHEET_WEBHOOK_URL"),s=Netlify.env.get("CASH_COUNT_WEBHOOK_SECRET");
  if(!u||!s) return new Response(JSON.stringify({ok:false,error:"bridge not configured"}),{status:500,headers:{"content-type":"application/json"}});
  const out=[];
- for(const x of DATA){
-  const rr=rows(x);
-  const q=await fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({eventType:"CASH_COUNT_SYNC",spreadsheetId:ID,branch:"Solaire",rows:rr,secret:s})});
-  const t=await q.text(); let j={}; try{j=JSON.parse(t)}catch{j={raw:t}};
-  out.push({ref:x.r,status:q.status,result:j,rows:rr.length});
- }
- // Sort both live branch sheets after the backfill. The bridge accepts an empty
- // CASH_COUNT_SYNC payload as a sort-only operation.
+ const allRows=DATA.flatMap(rows);
+ const q=await fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+   eventType:"CASH_COUNT_SYNC",spreadsheetId:ID,branch:"Solaire",rows:allRows,secret:s
+ })});
+ const t=await q.text(); let j={}; try{j=JSON.parse(t)}catch{j={raw:t}};
+ out.push({ref:"BATCH-SOLAIRE",status:q.status,result:j,rows:allRows.length});
  for (const branch of ["Solaire","Alphaland"]) {
    const q=await fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
      eventType:"CASH_COUNT_SYNC",spreadsheetId:ID,branch,rows:[],secret:s
@@ -82,6 +80,6 @@ export default async()=>{
    const t=await q.text(); let j={}; try{j=JSON.parse(t)}catch{j={raw:t}};
    out.push({ref:"SORT-"+branch,status:q.status,result:j,rows:0});
  }
- return new Response(JSON.stringify({ok:out.every(x=>x.status>=200&&x.status<300),count:DATA.length,results:out}),{headers:{"content-type":"application/json"}});
+ return new Response(JSON.stringify({ok:out.every(x=>x.status>=200&&x.status<300),count:DATA.length,totalRows:allRows.length,results:out}),{headers:{"content-type":"application/json"}});
 };
 export const config={path:"/__psulit-sync-solaire-backfill-20260923-1003"};
