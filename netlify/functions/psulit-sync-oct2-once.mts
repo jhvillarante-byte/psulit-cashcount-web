@@ -65,6 +65,15 @@ export default async()=>{
   const t=await q.text(); let j={}; try{j=JSON.parse(t)}catch{j={raw:t}};
   out.push({ref:x.r,status:q.status,result:j,rows:rr.length});
  }
+ // Sort both live branch sheets after the backfill. The bridge accepts an empty
+ // CASH_COUNT_SYNC payload as a sort-only operation.
+ for (const branch of ["Solaire","Alphaland"]) {
+   const q=await fetch(u,{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({
+     eventType:"CASH_COUNT_SYNC",spreadsheetId:ID,branch,rows:[],secret:s
+   })});
+   const t=await q.text(); let j={}; try{j=JSON.parse(t)}catch{j={raw:t}};
+   out.push({ref:"SORT-"+branch,status:q.status,result:j,rows:0});
+ }
  return new Response(JSON.stringify({ok:out.every(x=>x.status>=200&&x.status<300),count:DATA.length,results:out}),{headers:{"content-type":"application/json"}});
 };
 export const config={path:"/__psulit-sync-solaire-backfill-20260923-1003"};
