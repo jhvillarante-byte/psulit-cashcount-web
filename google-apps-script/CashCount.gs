@@ -38,7 +38,6 @@ function doPost(e) {
     if (branch !== 'Alphaland' && branch !== 'Solaire') return output_({ ok: false, error: 'Unknown branch.' });
 
     const incoming = Array.isArray(payload.rows) ? payload.rows : [];
-    if (!incoming.length) return output_({ ok: true, appended: 0, duplicates: 0 });
 
     const lock = LockService.getScriptLock();
     lock.waitLock(15000);
@@ -93,7 +92,9 @@ function doPost(e) {
         sheet.getRange(sheet.getLastRow() + 1, 1, rowsToAppend.length, CASH_COUNT_HEADERS.length).setValues(rowsToAppend);
       }
 
-      return output_({ ok: true, appended: rowsToAppend.length, duplicates: duplicates, sheet: sheetName });
+      sortCashCountSheet_(sheet);
+
+      return output_({ ok: true, appended: rowsToAppend.length, duplicates: duplicates, sheet: sheetName, sorted: true });
     } finally {
       lock.releaseLock();
     }
@@ -101,6 +102,21 @@ function doPost(e) {
     console.error(error && error.stack ? error.stack : error);
     return output_({ ok: false, error: String(error && error.message ? error.message : error) });
   }
+}
+
+function sortCashCountSheet_(sheet) {
+  const lastRow = sheet.getLastRow();
+  const lastColumn = CASH_COUNT_HEADERS.length;
+  if (lastRow < 3) return;
+
+  // Business Date is the primary audit order.
+  // Submitted At is the secondary order within each business date.
+  // Solaire's 4–5 AM closing remains under the prior business date because
+  // the row's Business Date is the prior operating day.
+  sheet.getRange(2, 1, lastRow - 1, lastColumn).sort([
+    { column: 3, ascending: true },
+    { column: 2, ascending: true }
+  ]);
 }
 
 function ensureHeaders_(sheet) {
