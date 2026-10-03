@@ -44,6 +44,14 @@ const ALL_DATA=[
 {d:"2026-10-02",t:"10/03/2026 04:55:46",r:"PSC-MURG045X-6356",s:"Night",ct:"Closing",tel:"Angelica Besid",fx:{PHP:474566.90,USD:6760,JPY:12000,SGD:6370,GBP:5,AUD:120,THB:2300,VND:500000,HKD:5020,CNY:4400,CAD:1220,TWD:1000},h:99169.70,bank:{PHP:50000,USD:500},rec:[["8Ventures","PHP",1000000],["Barang.ai","PHP",12000]],ft:1362024.96}
 ];
 const slug=v=>String(v).toUpperCase().replace(/[^A-Z0-9]+/g,"-").replace(/^-|-$/g,"");
+function businessDate_(stamp){
+ const [datePart,timePart="00:00:00"]=String(stamp).trim().split(/\s+/);
+ const [mm,dd,yyyy]=datePart.split("/").map(Number);
+ const d=new Date(Date.UTC(yyyy,mm-1,dd));
+ if(timePart < "05:00:00") d.setUTCDate(d.getUTCDate()-1);
+ return d.toISOString().slice(0,10);
+}
+const DATA=ALL_DATA.filter(x=>businessDate_(x.t)<="2026-09-28");
 function rows(x){
  const c={submittedAt:x.t,businessDate:businessDate_(x.t),branch:"Solaire",countType:x.ct,shift:x.s,teller:x.tel,reference:x.r,sourceApp:"Cash Count App"};
  const a=[]; const add=(k,f)=>a.push({syncKey:x.r+":"+k,...c,...f});
