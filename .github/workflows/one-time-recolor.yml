@@ -22,3 +22,5 @@ jobs:
           echo "Recolor endpoint did not become ready." >&2
           cat /tmp/recolor.out || true
           exit 1
+
+# one-time trigger marker
