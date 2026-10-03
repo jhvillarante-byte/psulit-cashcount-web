@@ -93,6 +93,7 @@ function doPost(e) {
       }
 
       sortCashCountSheet_(sheet);
+      recolorOperationalSheetsByBusinessDate_(spreadsheet, branch);
 
       return output_({ ok: true, appended: rowsToAppend.length, duplicates: duplicates, sheet: sheetName, sorted: true });
     } finally {
@@ -103,6 +104,21 @@ function doPost(e) {
     return output_({ ok: false, error: String(error && error.message ? error.message : error) });
   }
 }
+
+const BUSINESS_DATE_COLORS = [
+  '#EAF2FF', // soft blue
+  '#EAF8EE', // soft green
+  '#FFF6D9', // soft yellow
+  '#F0E8FF', // soft lavender
+  '#FFEBDD', // soft peach
+  '#FDEAF3', // soft pink
+  '#E7F7F7', // soft aqua
+  '#F3F0E8', // soft sand
+  '#EAF0F8', // soft slate
+  '#F2EAF8', // soft lilac
+  '#EAF7E8', // soft lime
+  '#FFF0E8'  // soft apricot
+];
 
 function sortCashCountSheet_(sheet) {
   const lastRow = sheet.getLastRow();
@@ -117,6 +133,132 @@ function sortCashCountSheet_(sheet) {
     { column: 3, ascending: true },
     { column: 2, ascending: true }
   ]);
+}
+
+function recolorOperationalSheetsByBusinessDate_(spreadsheet, branch) {
+  [
+    branch + ' Cash Count',
+    branch + ' Transactions'
+  ].forEach(function(sheetName) {
+    const sheet = spreadsheet.getSheetByName(sheetName);
+    if (sheet) recolorSheetByBusinessDate_(sheet, branch);
+  });
+}
+
+function recolorSheetByBusinessDate_(sheet, branch) {
+  const values = sheet.getDataRange().getDisplayValues();
+  if (values.length < 2) return;
+
+  const headers = values[0].map(function(value) {
+    return String(value || '').trim();
+  });
+
+  const lastColumn = Math.max(sheet.getLastColumn(), headers.length);
+  const rowAddressesByColor = {};
+  const dataStartRow = 2;
+
+  for (let i = 1; i < values.length; i += 1) {
+    const businessDate = businessDateFromSheetRow_(headers, values[i], branch);
+    if (!businessDate) continue;
+
+    const color = colorForBusinessDate_(businessDate);
+    if (!rowAddressesByColor[color]) rowAddressesByColor[color] = [];
+
+    rowAddressesByColor[color].push(
+      sheet.getRange(dataStartRow + i - 1, 1, 1, lastColumn).getA1Notation()
+    );
+  }
+
+  Object.keys(rowAddressesByColor).forEach(function(color) {
+    sheet.getRangeList(rowAddressesByColor[color]).setBackground(color);
+  });
+}
+
+function businessDateFromSheetRow_(headers, row, branch) {
+  const directDateHeaders = [
+    'Business Date',
+    'Date',
+    'Transaction Date'
+  ];
+
+  for (let i = 0; i < directDateHeaders.length; i += 1) {
+    const index = headers.indexOf(directDateHeaders[i]);
+    if (index === -1) continue;
+    const direct = normalizeBusinessDate_(row[index]);
+    if (direct) return direct;
+  }
+
+  const timestampHeaders = [
+    'Official Timestamp',
+    'Submitted At',
+    'Timestamp',
+    'Created At'
+  ];
+
+  for (let i = 0; i < timestampHeaders.length; i += 1) {
+    const index = headers.indexOf(timestampHeaders[i]);
+    if (index === -1) continue;
+
+    const raw = String(row[index] || '').trim();
+    if (!raw) continue;
+
+    const parsed = parseSheetDateTime_(raw);
+    if (!parsed) continue;
+
+    if (branch === 'Solaire' && parsed.getHours() < 5) {
+      parsed.setDate(parsed.getDate() - 1);
+    }
+
+    return Utilities.formatDate(
+      parsed,
+      Session.getScriptTimeZone() || 'Asia/Manila',
+      'yyyy-MM-dd'
+    );
+  }
+
+  return '';
+}
+
+function parseSheetDateTime_(raw) {
+  const parsed = new Date(raw);
+  if (!isNaN(parsed.getTime())) return parsed;
+
+  const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?)?/);
+  if (!m) return null;
+
+  const month = Number(m[1]);
+  const day = Number(m[2]);
+  const year = Number(m[3]);
+  const hour = Number(m[4] || 0);
+  const minute = Number(m[5] || 0);
+  const second = Number(m[6] || 0);
+
+  return new Date(year, month - 1, day, hour, minute, second);
+}
+
+function normalizeBusinessDate_(raw) {
+  const value = String(raw || '').trim();
+  if (!value) return '';
+
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value)) return value;
+
+  const m = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+  if (m) {
+    return m[3] + '-' + String(m[1]).padStart(2, '0') + '-' + String(m[2]).padStart(2, '0');
+  }
+
+  return '';
+}
+
+function colorForBusinessDate_(businessDate) {
+  const parts = businessDate.split('-').map(Number);
+  if (parts.length !== 3 || parts.some(function(value) { return !Number.isFinite(value); })) {
+    return BUSINESS_DATE_COLORS[0];
+  }
+
+  const utcDay = Math.floor(Date.UTC(parts[0], parts[1] - 1, parts[2]) / 86400000);
+  const index = ((utcDay % BUSINESS_DATE_COLORS.length) + BUSINESS_DATE_COLORS.length) % BUSINESS_DATE_COLORS.length;
+  return BUSINESS_DATE_COLORS[index];
 }
 
 function ensureHeaders_(sheet) {
