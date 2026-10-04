@@ -363,11 +363,18 @@ function doGet(e) {
           if (header) obj[header] = row[i] === undefined ? '' : row[i];
         });
         return obj;
-      }).filter(function(row) {
-        return rowMatchesDate_(row, date);
       });
 
-      sheets[sheetName] = { headers: headers, rows: rows };
+      // Audit reader mode: return the full selected sheet and let the
+      // read-only audit backend perform the date/time filtering itself.
+      // This affects ONLY GET reads. doPost/live Telegram posting is unchanged.
+      const filteredRows = String(params.auditRead || '').toLowerCase() === 'all'
+        ? rows
+        : rows.filter(function(row) {
+            return rowMatchesDate_(row, date);
+          });
+
+      sheets[sheetName] = { headers: headers, rows: filteredRows };
     });
 
     return output_({
