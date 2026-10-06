@@ -2,9 +2,17 @@ const { verifyToken, json, requirePost, parseBody } = require("./_auth");
 const { sendCashCountPhoto } = require("./report-image");
 
 const CASH_COUNT_SPREADSHEET_ID = "1_msQClr0yfx_jTKeEfop6lnfNvBPd-sNNMkgLnBgsrU";
+// IMPORTANT: this MUST stay in sync with the CURRENCIES_SHORT list in
+// index.html (the Cash Count form's own currency picker) and with
+// https://rates.psulit.ph/. A currency present in the form but missing
+// here gets silently dropped when a Cash Count report is converted into
+// Google Sheet rows (it never reaches the sheet or the audit report),
+// which is exactly the bug that previously affected VND and BHD.
+// When PSulit starts trading a new currency, add it to BOTH lists.
 const FOREX_CODES = new Set([
   "PHP", "USD", "JPY", "KRW", "CNY", "EUR", "GBP", "AUD", "CAD", "CHF",
-  "NZD", "SGD", "HKD", "TWD", "THB", "MYR", "IDR", "AED", "SAR", "BND"
+  "NZD", "SGD", "AED", "SAR", "HKD", "KWD", "BHD", "QAR", "JOD",
+  "MYR", "BND", "THB", "TWD", "IDR", "VND"
 ]);
 
 function normalizeBranch(value) {

@@ -3,9 +3,14 @@ const crypto = require("crypto");
 const fs = require("fs");
 const path = require("path");
 
+// IMPORTANT: keep in sync with CURRENCIES_SHORT in index.html,
+// FOREX_CODES in send-report-live.js, and https://rates.psulit.ph/.
+// A currency missing here is silently left off the rendered Cash Count
+// photo even though the teller counted it correctly.
 const FOREX_CODES = new Set([
   "PHP", "USD", "JPY", "KRW", "CNY", "EUR", "GBP", "AUD", "CAD", "CHF",
-  "NZD", "SGD", "HKD", "TWD", "THB", "MYR", "IDR", "AED", "SAR", "BND"
+  "NZD", "SGD", "AED", "SAR", "HKD", "KWD", "BHD", "QAR", "JOD",
+  "MYR", "BND", "THB", "TWD", "IDR", "VND"
 ]);
 
 function esc(value) {
