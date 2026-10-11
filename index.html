@@ -663,8 +663,8 @@ function isOtherSelected(itemId) {
 function refreshScratchByBranch() {
   const section = document.getElementById("scratch-physical-section");
   if(!section) return;
-  // Scratch physical count is always required for Alphaland (no longer in Others tab)
-  const required = state.branch === "Alphaland";
+  // Scratch physical count shows when Scratch is selected in Others tab (Alphaland only)
+  const required = state.branch === "Alphaland" && isOtherSelected("scratch");
   section.style.display = required ? "block" : "none";
   if(!required) clearScratchErrors();
 }
@@ -682,10 +682,10 @@ function clearScratchErrors() {
 }
 
 function validateScratchPhysicalCount() {
-  if(!(state.branch === "Alphaland")) return { valid: true, values: null, errors: {} };
+  if(!isOtherSelected("scratch")) return { valid: true, values: null, errors: {} };
   if(!cashCountModuleReady()) return { valid: false, values: null, errors: {module: showCashCountModuleError()} };
   clearScratchErrors();
-  const result = ScratchCount.validate(state.branch, (state.branch === "Alphaland"), readScratchRawValues());
+  const result = ScratchCount.validate(state.branch, isOtherSelected("scratch"), readScratchRawValues());
   Object.entries(result.errors).forEach(([key, message]) => {
     const error = document.getElementById("err-" + key);
     if(error) error.textContent = message;
@@ -730,7 +730,7 @@ function validateScratchAndContinue() {
 }
 
 function getScratchPhysicalCount() {
-  const result = ScratchCount.validate(state.branch, (state.branch === "Alphaland"), readScratchRawValues());
+  const result = ScratchCount.validate(state.branch, isOtherSelected("scratch"), readScratchRawValues());
   return result.valid ? result.values : null;
 }
 
@@ -855,7 +855,7 @@ function loadLottomatikCarryForward() {
 
 
 
-const OTHER_ITEMS_BY_BRANCH = { Solaire: ["hive","lottomatik"], Alphaland: ["hive","juanpay","lottomatik"] };
+const OTHER_ITEMS_BY_BRANCH = { Solaire: ["hive","lottomatik"], Alphaland: ["hive","juanpay","scratch","lottomatik"] };
 const ALL_OTHER_ITEMS = ["hive","juanpay","scratch","lottomatik"];
 const PHP_DENOM_VALS = [1000,500,200,100,50,20,10,5,1,0.25,0.1,0.05,0.01];
 
@@ -946,8 +946,15 @@ function rebuildOtherTabs(activeId) {
     const s = document.getElementById("other-section-"+id);
     if(s) { s.classList.remove("active"); s.style.display="none"; }
   });
-  const activeSection = document.getElementById("other-section-"+currentActive);
-  if(activeSection) { activeSection.classList.add("active"); activeSection.style.display="block"; }
+  // For scratch, show physical section instead of denom section
+  const physSection = document.getElementById("scratch-physical-section");
+  if(physSection) physSection.style.display = "none";
+  if(currentActive === "scratch") {
+    if(physSection) physSection.style.display = "block";
+  } else {
+    const activeSection = document.getElementById("other-section-"+currentActive);
+    if(activeSection) { activeSection.classList.add("active"); activeSection.style.display="block"; }
+  }
 }
 
 function switchOtherTab(itemId) {
@@ -955,13 +962,20 @@ function switchOtherTab(itemId) {
   document.querySelectorAll("#other-tab-row .tab-btn").forEach(b=>b.classList.remove("active"));
   const tb = document.getElementById("other-tab-"+itemId);
   if(tb) tb.classList.add("active");
-  // Hide ALL other sections, show only clicked one
+  // Hide ALL other sections and physical section
   ALL_OTHER_ITEMS.forEach(id => {
     const s = document.getElementById("other-section-"+id);
     if(s) { s.classList.remove("active"); s.style.display="none"; }
   });
-  const ds = document.getElementById("other-section-"+itemId);
-  if(ds) { ds.classList.add("active"); ds.style.display="block"; }
+  const physSection = document.getElementById("scratch-physical-section");
+  if(physSection) physSection.style.display = "none";
+  // For scratch, show physical section; for others, show denom section
+  if(itemId === "scratch") {
+    if(physSection) physSection.style.display = "block";
+  } else {
+    const ds = document.getElementById("other-section-"+itemId);
+    if(ds) { ds.classList.add("active"); ds.style.display="block"; }
+  }
 }
 
 function calcOtherTotal(itemId) {
@@ -1539,7 +1553,7 @@ ${line}
   const recLines = formatRecPayForReport('receivables');
   const payLines = formatRecPayForReport('payables');
   if(recLines || payLines) msg += `${line}\n${recLines}${payLines}`;
-  const scratchReport = ScratchCount.formatReport(state.branch, (state.branch === "Alphaland"), getScratchPhysicalCount(), bold);
+  const scratchReport = ScratchCount.formatReport(state.branch, isOtherSelected("scratch"), getScratchPhysicalCount(), bold);
   if(scratchReport) msg += `${line}\n${scratchReport}\n`;
   msg += `${line}\n`;
   msg += `✅ ${b}Submitted & Locked${b}\n`;
@@ -1665,7 +1679,7 @@ ${OTHERS_LABELS_MAP[k]}
 `;
     });
   }
-  const scratchReport = ScratchCount.formatReport(state.branch, (state.branch === "Alphaland"), getScratchPhysicalCount(), true);
+  const scratchReport = ScratchCount.formatReport(state.branch, isOtherSelected("scratch"), getScratchPhysicalCount(), true);
   if(scratchReport) msg += `\n${line}\n${scratchReport}\n`;
   msg += `
 ${line}
