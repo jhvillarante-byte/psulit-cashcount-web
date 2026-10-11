@@ -371,6 +371,13 @@
             <div class="denom-row"><span class="denom-label">₱1</span><input class="denom-input" type="number" min="0" step="1" placeholder="0" id="lottomatik_cash_1" oninput="calcLottomatikCashTotal()"><span class="denom-sub" id="lottomatik-cash-sub-1">—</span></div><span class="error" id="err-lottomatik-cash-1"></span>
             <div class="denom-total"><span>TOTAL LOTTOMATIK</span><span></span><span class="total-amt" id="lottomatik-cash-total">₱0.00</span></div>
           </div>
+          <div style="font-weight:700;color:#1e3a5f;margin:16px 0 6px;">🧻 Thermal Rolls</div>
+          <p style="font-size:12px;color:#64748b;margin-bottom:8px;">Required — enter the number of thermal rolls on hand.</p>
+          <div class="field-group" style="margin-bottom:16px;">
+            <label class="field-label" for="lottomatik-thermal-rolls">Number of Thermal Rolls</label>
+            <input type="number" inputmode="numeric" min="0" step="1" id="lottomatik-thermal-rolls" placeholder="Required" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #e2e8f0;font-size:15px;outline:none;">
+            <span class="error" id="err-lottomatik-thermal-rolls"></span>
+          </div>
           <div style="font-weight:700;color:#1e3a5f;margin:16px 0 6px;">LottoMatik Wallet</div>
           <p style="font-size:12px;color:#64748b;margin-bottom:8px;">Enter the total electronic wallet balance, including balances carried over from previous days.</p>
           <label class="field-label" for="lottomatik-wallet-balance">Current Wallet Balance</label>
@@ -393,10 +400,21 @@
         <input class="denom-input" style="width:100%;text-align:left;" type="number" inputmode="numeric" min="0" step="1" id="scratch_red_hot_7" placeholder="Required">
         <span class="error" id="err-scratch_red_hot_7"></span>
       </div>
-      <div class="field-group" style="margin-bottom:0;">
+      <div class="field-group">
         <label class="field-label" for="scratch_go_for_gold">Go For Gold — pcs</label>
         <input class="denom-input" style="width:100%;text-align:left;" type="number" inputmode="numeric" min="0" step="1" id="scratch_go_for_gold" placeholder="Required">
         <span class="error" id="err-scratch_go_for_gold"></span>
+      </div>
+      <div style="margin-top:16px;padding-top:16px;border-top:1.5px solid #e2e8f0;">
+        <h4 style="font-size:13px;font-weight:700;color:#1e3a5f;margin-bottom:12px;">💰 CASH & PAYOUT</h4>
+        <div class="field-group">
+          <label class="field-label" for="scratch_cash">Cash (PHP)</label>
+          <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:18px;font-weight:700;">₱</span><input type="text" inputmode="decimal" id="scratch_cash" placeholder="0.00" oninput="formatBankInput(this)" style="flex:1;padding:10px 14px;border-radius:8px;border:1.5px solid #e2e8f0;font-size:15px;outline:none;"></div>
+        </div>
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label" for="scratch_winning_payout">Winning Cards / Payout (PHP)</label>
+          <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:18px;font-weight:700;">₱</span><input type="text" inputmode="decimal" id="scratch_winning_payout" placeholder="0.00" oninput="formatBankInput(this)" style="flex:1;padding:10px 14px;border-radius:8px;border:1.5px solid #e2e8f0;font-size:15px;outline:none;"></div>
+        </div>
       </div>
     </div>
 
@@ -701,7 +719,8 @@ function validateScratchAndContinue() {
   const scratchResult = validateScratchPhysicalCount();
   const lottomatikResult = validateLottomatikWallet();
   const lottomatikCashResult = validateLottomatikCash();
-  if(scratchResult.valid && lottomatikResult.valid && lottomatikCashResult.valid) goTo(6);
+  const thermalResult = validateThermalRolls();
+  if(scratchResult.valid && lottomatikResult.valid && lottomatikCashResult.valid && thermalResult.valid) goTo(6);
   else {
     switchMainTab("others");
     if(!scratchResult.valid) switchOtherTab("scratch");
@@ -764,6 +783,26 @@ function getLottomatikCashValues() {
   return result.valid ? result.values : null;
 }
 
+
+function validateThermalRolls() {
+  // Only required for Alphaland when Lottomatik is selected
+  if(state.branch !== "Alphaland" || !isOtherSelected("lottomatik")) return { valid: true };
+  const input = document.getElementById("lottomatik-thermal-rolls");
+  const error = document.getElementById("err-lottomatik-thermal-rolls");
+  const val = input ? input.value.trim() : "";
+  if(val === "" || isNaN(Number(val)) || Number(val) < 0) {
+    if(error) error.textContent = "Number of thermal rolls is required.";
+    return { valid: false };
+  }
+  if(error) error.textContent = "";
+  return { valid: true, value: parseInt(val, 10) };
+}
+
+function getThermalRolls() {
+  const result = validateThermalRolls();
+  return result.valid ? (result.value ?? null) : null;
+}
+
 function getLottomatikCashTotal() {
   const result = ScratchCount.validateLottomatikCash(state.branch, isOtherSelected("lottomatik"), readLottomatikCashRawValues());
   return result.valid ? result.total : 0;
@@ -817,7 +856,7 @@ function loadLottomatikCarryForward() {
 
 
 
-const OTHER_ITEMS_BY_BRANCH = { Solaire: ["hive","lottomatik"], Alphaland: ["hive","juanpay","scratch","lottomatik"] };
+const OTHER_ITEMS_BY_BRANCH = { Solaire: ["hive","lottomatik"], Alphaland: ["hive","juanpay","lottomatik"] };
 const ALL_OTHER_ITEMS = ["hive","juanpay","scratch","lottomatik"];
 const PHP_DENOM_VALS = [1000,500,200,100,50,20,10,5,1,0.25,0.1,0.05,0.01];
 
