@@ -1561,6 +1561,13 @@ ${line}
   if(scratchReport && state.branch === "Alphaland" && isOtherSelected("scratch") && scratchThermalRolls !== null) {
     scratchReport += `\n🧻 Thermal Rolls on Hand: ${scratchThermalRolls} rolls`;
   }
+  // Cash and winning-card payout are Telegram-only additions. Leave Slack summary unchanged.
+  if(!bold && scratchReport && state.branch === "Alphaland" && isOtherSelected("scratch")) {
+    const scratchCash = parseFloat((document.getElementById("scratch_cash")?.value || "0").replace(/,/g, "")) || 0;
+    const scratchPayout = parseFloat((document.getElementById("scratch_winning_payout")?.value || "0").replace(/,/g, "")) || 0;
+    scratchReport += `\n💵 Cash on Hand: ₱${scratchCash.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+    scratchReport += `\n🎟️ Winning Cards / Payout: ₱${scratchPayout.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+  }
   if(scratchReport) msg += `${line}\n${scratchReport}\n`;
   msg += `${line}\n`;
   msg += `✅ ${b}Submitted & Locked${b}\n`;
