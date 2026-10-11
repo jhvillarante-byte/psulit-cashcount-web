@@ -376,6 +376,15 @@
           <label class="field-label" for="lottomatik-wallet-balance">Current Wallet Balance</label>
           <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:18px;font-weight:700;">₱</span><input type="text" inputmode="decimal" id="lottomatik-wallet-balance" placeholder="0.00" style="flex:1;padding:10px 14px;border-radius:8px;border:1.5px solid #e2e8f0;font-size:15px;outline:none;"></div>
           <span class="error" id="err-lottomatik-wallet-balance"></span>
+          <div style="margin-top:16px;padding-top:16px;border-top:1.5px solid #e2e8f0;">
+            <h4 style="font-size:13px;font-weight:700;color:#1e3a5f;margin-bottom:8px;">THERMAL ROLLS ON HAND</h4>
+            <p style="font-size:12px;color:#64748b;margin-bottom:8px;">Enter the number of LottoMatik thermal rolls physically on hand. Enter 0 if none.</p>
+            <div class="field-group" style="margin-bottom:0;">
+              <label class="field-label" for="lottomatik-thermal-rolls">Number of Thermal Rolls</label>
+              <input type="number" inputmode="numeric" min="0" step="1" id="lottomatik-thermal-rolls" placeholder="Required" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #e2e8f0;font-size:15px;outline:none;">
+              <span class="error" id="err-lottomatik-thermal-rolls"></span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
@@ -397,15 +406,6 @@
         <label class="field-label" for="scratch_go_for_gold">Go For Gold — pcs</label>
         <input class="denom-input" style="width:100%;text-align:left;" type="number" inputmode="numeric" min="0" step="1" id="scratch_go_for_gold" placeholder="Required">
         <span class="error" id="err-scratch_go_for_gold"></span>
-      </div>
-      <div style="margin-top:16px;padding-top:16px;border-top:1.5px solid #e2e8f0;">
-        <h4 style="font-size:13px;font-weight:700;color:#1e3a5f;margin-bottom:8px;">🧻 THERMAL ROLLS ON HAND</h4>
-        <p style="font-size:12px;color:#64748b;margin-bottom:8px;">Enter the number of Scratch It thermal rolls physically on hand. Enter 0 if none.</p>
-        <div class="field-group" style="margin-bottom:16px;">
-          <label class="field-label" for="scratch-thermal-rolls">Number of Thermal Rolls</label>
-          <input type="number" inputmode="numeric" min="0" step="1" id="scratch-thermal-rolls" placeholder="Required" style="width:100%;padding:10px 14px;border-radius:8px;border:1.5px solid #e2e8f0;font-size:15px;outline:none;">
-          <span class="error" id="err-scratch-thermal-rolls"></span>
-        </div>
       </div>
       <div style="margin-top:16px;padding-top:16px;border-top:1.5px solid #e2e8f0;">
         <h4 style="font-size:13px;font-weight:700;color:#1e3a5f;margin-bottom:12px;">💰 CASH & PAYOUT</h4>
@@ -720,12 +720,12 @@ function validateScratchAndContinue() {
   const scratchResult = validateScratchPhysicalCount();
   const lottomatikResult = validateLottomatikWallet();
   const lottomatikCashResult = validateLottomatikCash();
-  const thermalResult = validateScratchThermalRolls();
+  const thermalResult = validateLottomatikThermalRolls();
   if(scratchResult.valid && lottomatikResult.valid && lottomatikCashResult.valid && thermalResult.valid) goTo(6);
   else {
     switchMainTab("others");
     if(!scratchResult.valid) switchOtherTab("scratch");
-    else if(!thermalResult.valid) switchOtherTab("scratch");
+    else if(!thermalResult.valid) switchOtherTab("lottomatik");
     else switchOtherTab("lottomatik");
     const error = [...document.querySelectorAll(".error")].find(el => el.textContent.trim() && el.getClientRects().length);
     if(error) error.scrollIntoView({behavior:"smooth", block:"center"});
@@ -786,11 +786,11 @@ function getLottomatikCashValues() {
 }
 
 
-function validateScratchThermalRolls() {
-  // Thermal rolls are recorded under Scratch It for Alphaland.
-  if(state.branch !== "Alphaland" || !isOtherSelected("scratch")) return { valid: true };
-  const input = document.getElementById("scratch-thermal-rolls");
-  const error = document.getElementById("err-scratch-thermal-rolls");
+function validateLottomatikThermalRolls() {
+  // LottoMatik thermal rolls are recorded for Alphaland only when LottoMatik is selected.
+  if(state.branch !== "Alphaland" || !isOtherSelected("lottomatik")) return { valid: true };
+  const input = document.getElementById("lottomatik-thermal-rolls");
+  const error = document.getElementById("err-lottomatik-thermal-rolls");
   const val = input ? input.value.trim() : "";
   if(val === "" || !Number.isInteger(Number(val)) || Number(val) < 0) {
     if(error) error.textContent = "Number of thermal rolls is required (enter 0 if none).";
@@ -800,8 +800,8 @@ function validateScratchThermalRolls() {
   return { valid: true, value: Number(val) };
 }
 
-function getScratchThermalRolls() {
-  const result = validateScratchThermalRolls();
+function getLottomatikThermalRolls() {
+  const result = validateLottomatikThermalRolls();
   return result.valid ? (result.value ?? null) : null;
 }
 
@@ -1533,13 +1533,17 @@ ${line}
   if(lottomatikCashTotal > 0) othReportValues.lottomatikCash = lottomatikCashTotal;
   if(lottomatikWallet !== null) othReportValues.lottomatikWallet = lottomatikWallet;
   const othKeys = Object.keys(othReportValues).filter(k => othReportValues[k] > 0);
-  if(othKeys.length > 0) {
+  const telegramLottomatikThermalRolls = !bold && state.branch === "Alphaland" && isOtherSelected("lottomatik") ? getLottomatikThermalRolls() : null;
+  const showTelegramThermalRolls = !bold && state.branch === "Alphaland" && isOtherSelected("lottomatik") && telegramLottomatikThermalRolls !== null;
+  if(othKeys.length > 0 || showTelegramThermalRolls) {
     msg += `${line}
 `;
     othKeys.forEach(k => {
       msg += `${OTHERS_LABELS[k]}: ₱${othReportValues[k].toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}
 `;
     });
+    if(showTelegramThermalRolls) msg += `LottoMatik Thermal Rolls on Hand: ${telegramLottomatikThermalRolls} rolls
+`;
   }
 
   // Bank Balances
@@ -1557,10 +1561,6 @@ ${line}
   const payLines = formatRecPayForReport('payables');
   if(recLines || payLines) msg += `${line}\n${recLines}${payLines}`;
   let scratchReport = ScratchCount.formatReport(state.branch, isOtherSelected("scratch"), getScratchPhysicalCount(), bold);
-  const scratchThermalRolls = getScratchThermalRolls();
-  if(scratchReport && state.branch === "Alphaland" && isOtherSelected("scratch") && scratchThermalRolls !== null) {
-    scratchReport += `\n${bold ? "🧻 " : ""}Thermal Rolls on Hand: ${scratchThermalRolls} rolls`;
-  }
   // Cash and winning-card payout are Telegram-only additions. Leave Slack summary unchanged.
   if(!bold && scratchReport && state.branch === "Alphaland" && isOtherSelected("scratch")) {
     const scratchCash = parseFloat((document.getElementById("scratch_cash")?.value || "0").replace(/,/g, "")) || 0;
@@ -1694,10 +1694,6 @@ ${OTHERS_LABELS_MAP[k]}
     });
   }
   let scratchReport = ScratchCount.formatReport(state.branch, isOtherSelected("scratch"), getScratchPhysicalCount(), true);
-  const scratchThermalRolls = getScratchThermalRolls();
-  if(scratchReport && state.branch === "Alphaland" && isOtherSelected("scratch") && scratchThermalRolls !== null) {
-    scratchReport += `\n🧻 Thermal Rolls on Hand: ${scratchThermalRolls} rolls`;
-  }
   if(scratchReport) msg += `\n${line}\n${scratchReport}\n`;
   msg += `
 ${line}
@@ -1712,9 +1708,10 @@ async function handleSubmit() {
   const scratchValidation = validateScratchPhysicalCount();
   const lottomatikValidation = validateLottomatikWallet();
   const lottomatikCashValidation = validateLottomatikCash();
-  if(!scratchValidation.valid || !lottomatikValidation.valid || !lottomatikCashValidation.valid) {
+  const thermalRollValidation = validateLottomatikThermalRolls();
+  if(!scratchValidation.valid || !lottomatikValidation.valid || !lottomatikCashValidation.valid || !thermalRollValidation.valid) {
     goTo(4);
-    if(!lottomatikValidation.valid || !lottomatikCashValidation.valid) switchOtherTab("lottomatik");
+    if(!lottomatikValidation.valid || !lottomatikCashValidation.valid || !thermalRollValidation.valid) switchOtherTab("lottomatik");
     const target = !scratchValidation.valid ? "scratch-physical-section" : "other-section-lottomatik";
     document.getElementById(target)?.scrollIntoView({behavior:"smooth",block:"center"});
     return;
