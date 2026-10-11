@@ -663,9 +663,8 @@ function isOtherSelected(itemId) {
 function refreshScratchByBranch() {
   const section = document.getElementById("scratch-physical-section");
   if(!section) return;
-  const required = cashCountModuleReady()
-    ? ScratchCount.isRequired(state.branch, isOtherSelected("scratch"))
-    : state.branch === "Alphaland" && isOtherSelected("scratch");
+  // Scratch physical count is always required for Alphaland (no longer in Others tab)
+  const required = state.branch === "Alphaland";
   section.style.display = required ? "block" : "none";
   if(!required) clearScratchErrors();
 }
@@ -683,10 +682,10 @@ function clearScratchErrors() {
 }
 
 function validateScratchPhysicalCount() {
-  if(!isOtherSelected("scratch")) return { valid: true, values: null, errors: {} };
+  if(!(state.branch === "Alphaland")) return { valid: true, values: null, errors: {} };
   if(!cashCountModuleReady()) return { valid: false, values: null, errors: {module: showCashCountModuleError()} };
   clearScratchErrors();
-  const result = ScratchCount.validate(state.branch, isOtherSelected("scratch"), readScratchRawValues());
+  const result = ScratchCount.validate(state.branch, (state.branch === "Alphaland"), readScratchRawValues());
   Object.entries(result.errors).forEach(([key, message]) => {
     const error = document.getElementById("err-" + key);
     if(error) error.textContent = message;
@@ -731,7 +730,7 @@ function validateScratchAndContinue() {
 }
 
 function getScratchPhysicalCount() {
-  const result = ScratchCount.validate(state.branch, isOtherSelected("scratch"), readScratchRawValues());
+  const result = ScratchCount.validate(state.branch, (state.branch === "Alphaland"), readScratchRawValues());
   return result.valid ? result.values : null;
 }
 
@@ -1540,7 +1539,7 @@ ${line}
   const recLines = formatRecPayForReport('receivables');
   const payLines = formatRecPayForReport('payables');
   if(recLines || payLines) msg += `${line}\n${recLines}${payLines}`;
-  const scratchReport = ScratchCount.formatReport(state.branch, isOtherSelected("scratch"), getScratchPhysicalCount(), bold);
+  const scratchReport = ScratchCount.formatReport(state.branch, (state.branch === "Alphaland"), getScratchPhysicalCount(), bold);
   if(scratchReport) msg += `${line}\n${scratchReport}\n`;
   msg += `${line}\n`;
   msg += `✅ ${b}Submitted & Locked${b}\n`;
@@ -1666,7 +1665,7 @@ ${OTHERS_LABELS_MAP[k]}
 `;
     });
   }
-  const scratchReport = ScratchCount.formatReport(state.branch, isOtherSelected("scratch"), getScratchPhysicalCount(), true);
+  const scratchReport = ScratchCount.formatReport(state.branch, (state.branch === "Alphaland"), getScratchPhysicalCount(), true);
   if(scratchReport) msg += `\n${line}\n${scratchReport}\n`;
   msg += `
 ${line}
