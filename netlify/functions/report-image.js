@@ -61,6 +61,15 @@ function parseReport(message) {
     if (/^Rates:/i.test(rawLine) || /exchangerate-api\.com/i.test(rawLine)) continue;
     if (/^[─-]{5,}$/.test(rawLine)) continue;
 
+    // Always render the manually entered AR booklet stock under Forex, even if the heading format changes.
+    const arBooklets = rawLine.match(/^\s*(?:AR Booklets Remaining|Forex AR Booklets?)\s*:\s*(.+?)\s*$/i);
+    if (arBooklets) {
+      const forex = getSection("FOREX CASH");
+      forex.rows = forex.rows.filter(row => !/^AR Booklets Remaining$/i.test(String(row.label || "")));
+      forex.rows.push({ label: "AR Booklets Remaining", value: arBooklets[1].trim() });
+      continue;
+    }
+
     const normalized = normalizeHeading(rawLine);
     if (normalized === "FOREX CASH" || normalized === "FOREX") { getSection("FOREX CASH"); continue; }
     // Keep the manually entered Forex AR booklet count inside the Forex section on the report image.
