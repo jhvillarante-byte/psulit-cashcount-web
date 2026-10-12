@@ -263,6 +263,15 @@
       </div>
       <div class="tab-row" id="tab-row"></div>
       <div id="denom-sections"></div>
+      <div id="forex-ar-booklet-section" style="margin-top:16px;padding:16px;border:1.5px solid #e2e8f0;border-radius:10px;background:#f8fafc;">
+        <h3 style="font-size:15px;color:#1e3a5f;margin-bottom:4px;">📘 FOREX AR BOOKLET — PHYSICAL COUNT</h3>
+        <p style="font-size:12px;color:#64748b;margin:0 0 12px;">Enter the number of AR booklets remaining.</p>
+        <div class="field-group" style="margin-bottom:0;">
+          <label class="field-label" for="forex-ar-booklets">AR Booklets Remaining</label>
+          <input class="denom-input" style="width:100%;text-align:left;" type="number" inputmode="numeric" min="0" step="1" id="forex-ar-booklets" placeholder="Enter quantity">
+          <span class="error" id="err-forex-ar-booklets"></span>
+        </div>
+      </div>
       <div class="all-cur-summary" id="all-cur-summary" style="display:none">
         <div class="all-cur-title">All Currency Total</div>
         <div id="all-cur-rows"></div>
@@ -1693,6 +1702,11 @@ ${cur.flag} *${cur.code} — ${cur.name}*
     }
   });
 
+  const arBookletsRaw = document.getElementById("forex-ar-booklets")?.value?.trim() ?? "";
+  if(arBookletsRaw !== "") {
+    msg += `\n📘 *FOREX AR BOOKLET — PHYSICAL COUNT*\n  *AR Booklets Remaining: ${Number(arBookletsRaw)}*\n`;
+  }
+
   // Others
   const OTHERS_LABELS_MAP = {hive:"🐝 Hive", juanpay:"📱 JuanPay", scratch:"🎫 Scratch", lottomatikCash:"🎰 LottoMatik Cash", lottomatikWallet:"📱 LottoMatik Wallet"};
   const PHP_DENOM_LABELS = [{l:"₱1,000",v:1000},{l:"₱500",v:500},{l:"₱200",v:200},{l:"₱100",v:100},{l:"₱50",v:50},{l:"₱20",v:20},{l:"₱10",v:10},{l:"₱5",v:5},{l:"₱1",v:1},{l:"25¢",v:0.25},{l:"10¢",v:0.1},{l:"5¢",v:0.05},{l:"1¢",v:0.01}];
@@ -1733,6 +1747,16 @@ ${line}
 let isSubmitting = false;
 async function handleSubmit() {
   if(isSubmitting) return;
+  const arBookletsInput = document.getElementById("forex-ar-booklets");
+  const arBookletsError = document.getElementById("err-forex-ar-booklets");
+  const arBookletsRaw = arBookletsInput?.value?.trim() ?? "";
+  if(arBookletsError) arBookletsError.textContent = "";
+  if(arBookletsRaw !== "" && (!Number.isInteger(Number(arBookletsRaw)) || Number(arBookletsRaw) < 0)) {
+    if(arBookletsError) arBookletsError.textContent = "Enter a whole number of 0 or more.";
+    arBookletsInput?.scrollIntoView({behavior:"smooth",block:"center"});
+    arBookletsInput?.focus();
+    return;
+  }
   const scratchValidation = validateScratchPhysicalCount();
   const lottomatikValidation = validateLottomatikWallet();
   const lottomatikCashValidation = validateLottomatikCash();
