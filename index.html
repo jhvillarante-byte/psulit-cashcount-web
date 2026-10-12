@@ -665,8 +665,11 @@ function isOtherSelected(itemId) {
 function refreshScratchByBranch() {
   const section = document.getElementById("scratch-physical-section");
   if(!section) return;
-  // Scratch physical count shows when Scratch is selected in Others tab (Alphaland only)
-  const required = state.branch === "Alphaland" && isOtherSelected("scratch");
+  // In Alphaland, show the physical Scratch count on either the Scratch tab or
+  // at the bottom of LottoMatik when both services are selected.
+  const activeTab = document.querySelector("#other-tab-row .tab-btn.active")?.id || "";
+  const tabAllowsScratch = activeTab === "other-tab-scratch" || activeTab === "other-tab-lottomatik";
+  const required = state.branch === "Alphaland" && isOtherSelected("scratch") && tabAllowsScratch;
   section.style.display = required ? "block" : "none";
   if(!required) clearScratchErrors();
 }
@@ -925,13 +928,14 @@ function rebuildOtherTabs(activeId) {
   });
   const tabRow = document.getElementById("other-tab-row");
   tabRow.innerHTML = "";
-  // Hide all denom sections
   ALL_OTHER_ITEMS.forEach(id => {
-    const s = document.getElementById("other-section-"+id);
-    if(s) s.classList.remove("active");
+    const section = document.getElementById("other-section-"+id);
+    if(section) section.classList.remove("active");
   });
+  const physSection = document.getElementById("scratch-physical-section");
+  if(physSection) physSection.style.display = "none";
   if(selected.length === 0) { tabRow.style.display="none"; return; }
-  // Determine which tab is active
+
   const currentActive = activeId && selected.includes(activeId) ? activeId : selected[0];
   tabRow.style.display = "flex";
   selected.forEach(id => {
@@ -944,49 +948,52 @@ function rebuildOtherTabs(activeId) {
     btn.onclick = () => switchOtherTab(id);
     tabRow.appendChild(btn);
   });
-  // Show only the active section, hide all others
+
   ALL_OTHER_ITEMS.forEach(id => {
-    const s = document.getElementById("other-section-"+id);
-    if(s) { s.classList.remove("active"); s.style.display="none"; }
+    const section = document.getElementById("other-section-"+id);
+    if(section) { section.classList.remove("active"); section.style.display="none"; }
   });
-  // Scratch shows denomination cash first, followed by ticket inventory and payout fields.
-  const physSection = document.getElementById("scratch-physical-section");
-  if(physSection) physSection.style.display = "none";
   if(currentActive === "scratch") {
     const scratchDenoms = document.getElementById("other-section-scratch");
-    if(scratchDenoms) { scratchDenoms.classList.add("active"); scratchDenoms.style.display = "block"; }
-    if(physSection) physSection.style.display = "block";
-    const cashInput = document.getElementById("scratch_cash");
-    if(cashInput) cashInput.value = getOtherTotal("scratch").toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+    if(scratchDenoms) { scratchDenoms.classList.add("active"); scratchDenoms.style.display="block"; }
+    if(physSection && state.branch === "Alphaland") physSection.style.display="block";
   } else {
     const activeSection = document.getElementById("other-section-"+currentActive);
     if(activeSection) { activeSection.classList.add("active"); activeSection.style.display="block"; }
+    // Requested layout: when LottoMatik is selected, Scratch physical count sits at the bottom.
+    if(currentActive === "lottomatik" && state.branch === "Alphaland" && isOtherSelected("scratch")) {
+      if(physSection) physSection.style.display="block";
+    }
   }
+  const cashInput = document.getElementById("scratch_cash");
+  if(cashInput) cashInput.value = getOtherTotal("scratch").toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 
 function switchOtherTab(itemId) {
-  // Remove active from all other tabs
   document.querySelectorAll("#other-tab-row .tab-btn").forEach(b=>b.classList.remove("active"));
-  const tb = document.getElementById("other-tab-"+itemId);
-  if(tb) tb.classList.add("active");
-  // Hide ALL other sections and physical section
+  const tab = document.getElementById("other-tab-"+itemId);
+  if(tab) tab.classList.add("active");
   ALL_OTHER_ITEMS.forEach(id => {
-    const s = document.getElementById("other-section-"+id);
-    if(s) { s.classList.remove("active"); s.style.display="none"; }
+    const section = document.getElementById("other-section-"+id);
+    if(section) { section.classList.remove("active"); section.style.display="none"; }
   });
   const physSection = document.getElementById("scratch-physical-section");
-  if(physSection) physSection.style.display = "none";
-  // Scratch shows denomination cash first, followed by ticket inventory and payout fields.
+  if(physSection) physSection.style.display="none";
+
   if(itemId === "scratch") {
-    const ds = document.getElementById("other-section-scratch");
-    if(ds) { ds.classList.add("active"); ds.style.display="block"; }
-    if(physSection) physSection.style.display = "block";
-    const cashInput = document.getElementById("scratch_cash");
-    if(cashInput) cashInput.value = getOtherTotal("scratch").toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+    const scratchDenoms = document.getElementById("other-section-scratch");
+    if(scratchDenoms) { scratchDenoms.classList.add("active"); scratchDenoms.style.display="block"; }
+    if(physSection && state.branch === "Alphaland") physSection.style.display="block";
   } else {
-    const ds = document.getElementById("other-section-"+itemId);
-    if(ds) { ds.classList.add("active"); ds.style.display="block"; }
+    const activeSection = document.getElementById("other-section-"+itemId);
+    if(activeSection) { activeSection.classList.add("active"); activeSection.style.display="block"; }
+    // Keep Scratch physical count visible below LottoMatik when both are selected.
+    if(itemId === "lottomatik" && state.branch === "Alphaland" && isOtherSelected("scratch")) {
+      if(physSection) physSection.style.display="block";
+    }
   }
+  const cashInput = document.getElementById("scratch_cash");
+  if(cashInput) cashInput.value = getOtherTotal("scratch").toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 }
 
 function calcOtherTotal(itemId) {
