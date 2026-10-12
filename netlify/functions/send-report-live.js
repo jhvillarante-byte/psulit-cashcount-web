@@ -102,11 +102,16 @@ function buildCashCountRows(message, branch) {
     "lottomatik cash": ["Fund Balance", "LottoMatik Cash", "PHP"],
     "lottomatik wallet": ["Wallet Balance", "LottoMatik Wallet", "PHP"],
   };
+  // The generic "Scratch: ₱..." subtotal can differ from the dedicated
+  // Scratch Cash on Hand field. For the audit's Scratch fund balance, prefer
+  // the explicit cash-on-hand amount when the report includes it.
+  const scratchCashOnHand = numberFrom(firstMatch(text, /Cash on Hand:\s*₱?([\d,]+(?:\.\d+)?)/i));
   for (const line of lines) {
     const fund = line.match(/^(?:[^A-Za-z0-9]*)(Hive|JuanPay|Scratch|LottoMatik Cash|LottoMatik Wallet):\s*₱?([\d,]+(?:\.\d+)?)/i);
     if (!fund) continue;
     const meta = fundLabels[fund[1].toLowerCase()];
-    const amount = numberFrom(fund[2]);
+    let amount = numberFrom(fund[2]);
+    if (fund[1].toLowerCase() === "scratch" && scratchCashOnHand !== null) amount = scratchCashOnHand;
     if (!meta || amount === null) continue;
     addRow(`FUND-${slug(meta[1])}-${slug(meta[2])}`, { category: meta[0], currency: meta[2], fundAccount: meta[1], amount, phpEquivalent: amount, quantityUnits: "", notes: "" });
   }
