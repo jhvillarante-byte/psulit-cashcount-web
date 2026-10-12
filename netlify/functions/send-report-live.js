@@ -116,6 +116,21 @@ function buildCashCountRows(message, branch) {
     addRow(`FUND-${slug(meta[1])}-${slug(meta[2])}`, { category: meta[0], currency: meta[2], fundAccount: meta[1], amount, phpEquivalent: amount, quantityUnits: "", notes: "" });
   }
 
+  // Keep the reported Scratch winning-card payout as its own audit row.
+  // This is a separate figure from the physical Scratch Cash on Hand balance.
+  const scratchPayout = numberFrom(firstMatch(text, /Winning Cards\s*\/\s*Payout:\s*₱?([\d,]+(?:\.\d+)?)/i));
+  if (scratchPayout !== null) {
+    addRow("SCRATCH-WINNING-PAYOUT", {
+      category: "Scratch Winning Payout",
+      currency: "PHP",
+      fundAccount: "Winning Cards / Payout",
+      amount: scratchPayout,
+      phpEquivalent: scratchPayout,
+      quantityUnits: "",
+      notes: "reported Scratch winning-card payout"
+    });
+  }
+
   let section = "";
   for (const line of lines) {
     if (/Bank Balances/i.test(line)) { section = "bank"; continue; }
