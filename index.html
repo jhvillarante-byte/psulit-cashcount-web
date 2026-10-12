@@ -960,10 +960,8 @@ function rebuildOtherTabs(activeId) {
   } else {
     const activeSection = document.getElementById("other-section-"+currentActive);
     if(activeSection) { activeSection.classList.add("active"); activeSection.style.display="block"; }
-    // Requested layout: when LottoMatik is selected, Scratch physical count sits at the bottom.
-    if(currentActive === "lottomatik" && state.branch === "Alphaland" && isOtherSelected("scratch")) {
-      if(physSection) physSection.style.display="block";
-    }
+    // Keep the LottoMatik tab dedicated to LottoMatik fields only.
+    // Scratch physical count is shown only when the Scratch tab is active.
   }
   const cashInput = document.getElementById("scratch_cash");
   if(cashInput) cashInput.value = getOtherTotal("scratch").toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
@@ -987,10 +985,8 @@ function switchOtherTab(itemId) {
   } else {
     const activeSection = document.getElementById("other-section-"+itemId);
     if(activeSection) { activeSection.classList.add("active"); activeSection.style.display="block"; }
-    // Keep Scratch physical count visible below LottoMatik when both are selected.
-    if(itemId === "lottomatik" && state.branch === "Alphaland" && isOtherSelected("scratch")) {
-      if(physSection) physSection.style.display="block";
-    }
+    // Keep the LottoMatik tab dedicated to LottoMatik fields only.
+    // Scratch physical count is shown only when the Scratch tab is active.
   }
   const cashInput = document.getElementById("scratch_cash");
   if(cashInput) cashInput.value = getOtherTotal("scratch").toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
