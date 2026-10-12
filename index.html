@@ -665,10 +665,10 @@ function isOtherSelected(itemId) {
 function refreshScratchByBranch() {
   const section = document.getElementById("scratch-physical-section");
   if(!section) return;
-  // In Alphaland, show the physical Scratch count on either the Scratch tab or
-  // at the bottom of LottoMatik when both services are selected.
+  // Scratch physical count belongs only to the Scratch tab.
+  // Selecting LottoMatik must never display Scratch fields beneath its controls.
   const activeTab = document.querySelector("#other-tab-row .tab-btn.active")?.id || "";
-  const tabAllowsScratch = activeTab === "other-tab-scratch" || activeTab === "other-tab-lottomatik";
+  const tabAllowsScratch = activeTab === "other-tab-scratch";
   const required = state.branch === "Alphaland" && isOtherSelected("scratch") && tabAllowsScratch;
   section.style.display = required ? "block" : "none";
   if(!required) clearScratchErrors();
