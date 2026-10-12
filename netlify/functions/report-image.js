@@ -63,6 +63,8 @@ function parseReport(message) {
 
     const normalized = normalizeHeading(rawLine);
     if (normalized === "FOREX CASH" || normalized === "FOREX") { getSection("FOREX CASH"); continue; }
+    // Keep the manually entered Forex AR booklet count inside the Forex section on the report image.
+    if (normalized.includes("FOREX AR BOOKLET") && normalized.includes("PHYSICAL COUNT")) { getSection("FOREX CASH"); continue; }
     if (normalized === "OTHER BALANCES" || normalized === "OTHERS") { getSection("OTHER BALANCES"); continue; }
     if (normalized === "BANK BALANCES") { getSection("BANK BALANCES"); continue; }
     if (normalized.includes("RECEIVABLES") && normalized.includes("OWED TO PSULIT")) { getSection("RECEIVABLES"); continue; }
@@ -178,6 +180,9 @@ function flagSvg(code, x, y) {
 function rowSvg(sectionName, x, y, label, value, width) {
   const rightX = x + width;
   if (sectionName === "FOREX CASH") {
+    if (/^AR Booklets Remaining$/i.test(String(label || "").trim())) {
+      return `<text x="${x}" y="${y}" font-size="26" font-weight="400" fill="#D4DEE9">AR Booklets Remaining</text><text x="${rightX}" y="${y}" text-anchor="end" font-size="26" font-weight="700" fill="#D6DAE0">${esc(value)}</text>`;
+    }
     const code = String(label || "").trim().toUpperCase().split(/\s+/)[0];
     return `${flagSvg(code, x, y - 23)}<text x="${x + 56}" y="${y}" font-size="26" font-weight="600" fill="#EAF1F8">${esc(label)}</text><text x="${rightX}" y="${y}" text-anchor="end" font-size="26" font-weight="700" fill="#D6DAE0">${esc(value)}</text>`;
   }
