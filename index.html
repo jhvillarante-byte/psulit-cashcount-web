@@ -410,8 +410,8 @@
       <div style="margin-top:16px;padding-top:16px;border-top:1.5px solid #e2e8f0;">
         <h4 style="font-size:13px;font-weight:700;color:#1e3a5f;margin-bottom:12px;">💰 CASH & PAYOUT</h4>
         <div class="field-group">
-          <label class="field-label" for="scratch_cash">Cash (PHP)</label>
-          <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:18px;font-weight:700;">₱</span><input type="text" inputmode="decimal" id="scratch_cash" placeholder="0.00" oninput="formatBankInput(this)" style="flex:1;padding:10px 14px;border-radius:8px;border:1.5px solid #e2e8f0;font-size:15px;outline:none;"></div>
+          <label class="field-label" for="scratch_cash">Cash on Hand (calculated from denominations)</label>
+          <div style="display:flex;align-items:center;gap:8px;"><span style="font-size:18px;font-weight:700;">₱</span><input type="text" inputmode="decimal" id="scratch_cash" value="0.00" readonly aria-readonly="true" style="flex:1;padding:10px 14px;border-radius:8px;border:1.5px solid #e2e8f0;font-size:15px;outline:none;background:#f1f5f9;"></div>
         </div>
         <div class="field-group" style="margin-bottom:0;">
           <label class="field-label" for="scratch_winning_payout">Winning Cards / Payout (PHP)</label>
@@ -949,11 +949,15 @@ function rebuildOtherTabs(activeId) {
     const s = document.getElementById("other-section-"+id);
     if(s) { s.classList.remove("active"); s.style.display="none"; }
   });
-  // For scratch, show physical section instead of denom section
+  // Scratch shows denomination cash first, followed by ticket inventory and payout fields.
   const physSection = document.getElementById("scratch-physical-section");
   if(physSection) physSection.style.display = "none";
   if(currentActive === "scratch") {
+    const scratchDenoms = document.getElementById("other-section-scratch");
+    if(scratchDenoms) { scratchDenoms.classList.add("active"); scratchDenoms.style.display = "block"; }
     if(physSection) physSection.style.display = "block";
+    const cashInput = document.getElementById("scratch_cash");
+    if(cashInput) cashInput.value = getOtherTotal("scratch").toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
   } else {
     const activeSection = document.getElementById("other-section-"+currentActive);
     if(activeSection) { activeSection.classList.add("active"); activeSection.style.display="block"; }
@@ -972,9 +976,13 @@ function switchOtherTab(itemId) {
   });
   const physSection = document.getElementById("scratch-physical-section");
   if(physSection) physSection.style.display = "none";
-  // For scratch, show physical section; for others, show denom section
+  // Scratch shows denomination cash first, followed by ticket inventory and payout fields.
   if(itemId === "scratch") {
+    const ds = document.getElementById("other-section-scratch");
+    if(ds) { ds.classList.add("active"); ds.style.display="block"; }
     if(physSection) physSection.style.display = "block";
+    const cashInput = document.getElementById("scratch_cash");
+    if(cashInput) cashInput.value = getOtherTotal("scratch").toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
   } else {
     const ds = document.getElementById("other-section-"+itemId);
     if(ds) { ds.classList.add("active"); ds.style.display="block"; }
@@ -995,6 +1003,11 @@ function calcOtherTotal(itemId) {
   // Update tab total
   const tabTotal = document.getElementById("other-tabtotal-"+itemId);
   if(tabTotal) tabTotal.textContent = total > 0 ? "₱"+total.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) : "";
+  // Keep the Scratch cash display in sync with its denomination count.
+  if(itemId === "scratch") {
+    const cashInput = document.getElementById("scratch_cash");
+    if(cashInput) cashInput.value = total.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+  }
 }
 
 function getOtherTotal(itemId) {
