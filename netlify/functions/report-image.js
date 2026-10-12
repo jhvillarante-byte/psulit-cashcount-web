@@ -231,10 +231,17 @@ function renderSvg(data) {
     if (!section.rows.length) continue;
     const [bg, fg] = palette(section.name);
     const sectionTitle = section.name === "FOREX CASH" ? "FOREIGN CURRENCY CASH (ON HAND)" : section.name;
+    // Keep the AR booklet row out of the Forex currency list so it can appear after the PHP-equivalent total.
+    const arBookletRows = section.name === "FOREX CASH"
+      ? section.rows.filter(row => /^AR Booklets Remaining$/i.test(String(row.label || "").trim()))
+      : [];
+    const visibleRows = section.name === "FOREX CASH"
+      ? section.rows.filter(row => !/^AR Booklets Remaining$/i.test(String(row.label || "").trim()))
+      : section.rows;
     body += `<rect x="${margin + 28}" y="${y}" width="${cardW - 56}" height="${sectionHeaderH}" rx="14" fill="${bg}" stroke="#24313F" stroke-width="1"/>`;
     body += `<text x="${margin + 50}" y="${y + 40}" font-size="24" font-weight="700" letter-spacing="1" fill="${fg}">${esc(sectionTitle)}</text>`;
     y += sectionHeaderH + 28;
-    for (const row of section.rows) {
+    for (const row of visibleRows) {
       body += rowSvg(section.name, margin + 52, y, row.label, row.value, cardW - 104);
       y += rowH;
     }
@@ -246,6 +253,14 @@ function renderSvg(data) {
       body += `<text x="${margin + cardW - 52}" y="${y + 42}" text-anchor="end" font-size="34" font-weight="700" fill="#D6DAE0">${esc(data.grandTotal)}</text>`;
       body += `<text x="${margin + 52}" y="${y + 72}" font-size="16" font-weight="400" fill="#79C99D">Converted value of Foreign Currency Cash only</text>`;
       y += 120;
+    }
+
+    if (section.name === "FOREX CASH") {
+      for (const row of arBookletRows) {
+        body += rowSvg(section.name, margin + 52, y, row.label, row.value, cardW - 104);
+        y += rowH;
+      }
+      if (arBookletRows.length) y += 16;
     }
   }
 
