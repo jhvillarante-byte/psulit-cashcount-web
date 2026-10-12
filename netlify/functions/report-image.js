@@ -105,6 +105,22 @@ function parseReport(message) {
     }
   }
 
+  // Thermal rolls belong under LottoMatik, even though the Cash Count
+  // submission currently places the line after the Scratch physical count.
+  const scratchForThermal = sections.find(s => s.name === "SCRATCH");
+  if (scratchForThermal) {
+    const thermalRows = scratchForThermal.rows.filter(r => /^(?:lottomatik\s+)?thermal rolls on hand$/i.test(String(r.label || "").trim()));
+    scratchForThermal.rows = scratchForThermal.rows.filter(r => !/^(?:lottomatik\s+)?thermal rolls on hand$/i.test(String(r.label || "").trim()));
+    if (thermalRows.length) {
+      let lotto = sections.find(s => s.name === "LOTTOMATIK");
+      if (!lotto) {
+        lotto = { name: "LOTTOMATIK", rows: [] };
+        sections.push(lotto);
+      }
+      lotto.rows.push(...thermalRows.map(r => ({ ...r, label: "Thermal Rolls on Hand" })));
+    }
+  }
+
   // On the report image, Scratch is one section with cash/payout first, then inventory.
   const scratch = sections.find(s => s.name === "SCRATCH");
   if (scratch) {
