@@ -67,7 +67,7 @@ function parseReport(message) {
     if (normalized === "BANK BALANCES") { getSection("BANK BALANCES"); continue; }
     if (normalized.includes("RECEIVABLES") && normalized.includes("OWED TO PSULIT")) { getSection("RECEIVABLES"); continue; }
     if (normalized.includes("PAYABLES") && normalized.includes("OWED BY PSULIT")) { getSection("PAYABLES"); continue; }
-    if (normalized.includes("SCRATCH IT") && normalized.includes("PHYSICAL COUNT")) { getSection("SCRATCH PHYSICAL COUNT"); continue; }
+    if (normalized.includes("SCRATCH IT") && normalized.includes("PHYSICAL COUNT")) { getSection("SCRATCH"); continue; }
 
     const fx = rawLine.match(/^(?:[^A-Z0-9]*)([A-Z]{3}):\s*(.+)$/);
     if (fx && FOREX_CODES.has(fx[1])) {
@@ -77,6 +77,8 @@ function parseReport(message) {
 
     const fund = rawLine.match(/^(?:[^A-Za-z0-9]*)(Hive|JuanPay|Scratch|LottoMatik Cash|LottoMatik Wallet):\s*(.+)$/i);
     if (fund) {
+      // Scratch cash belongs in the dedicated Scratch section, not Other Balances.
+      if (/^Scratch$/i.test(fund[1])) continue;
       getSection("OTHER BALANCES").rows.push({ label: fund[1], value: fund[2].trim() });
       continue;
     }
@@ -94,15 +96,31 @@ function parseReport(message) {
 
   const other = sections.find(s => s.name === "OTHER BALANCES");
   if (other) {
+    // Defensive filter: never show Scratch cash twice in the Other Balances section.
     const lottoRows = other.rows.filter(r => /lottomatik/i.test(r.label));
-    other.rows = other.rows.filter(r => !/lottomatik/i.test(r.label));
+    other.rows = other.rows.filter(r => !/lottomatik/i.test(r.label) && !/^scratch$/i.test(r.label));
     if (lottoRows.length) {
       const idx = sections.indexOf(other);
       sections.splice(idx + 1, 0, { name: "LOTTOMATIK", rows: lottoRows.map(r => ({ label: r.label.replace(/^LottoMatik\s*/i, "") || "Balance", value: r.value })) });
     }
   }
 
-  const order = ["FOREX CASH", "OTHER BALANCES", "LOTTOMATIK", "BANK BALANCES", "RECEIVABLES", "PAYABLES", "SCRATCH PHYSICAL COUNT"];
+  // On the report image, Scratch is one section with cash/payout first, then inventory.
+  const scratch = sections.find(s => s.name === "SCRATCH");
+  if (scratch) {
+    const rowRank = (label) => {
+      const normalized = normalizeHeading(label);
+      if (normalized === "CASH ON HAND") return 0;
+      if (normalized.startsWith("WINNING CARDS PAYOUT")) return 1;
+      if (normalized === "GO BANANA") return 2;
+      if (normalized === "RED HOT 7") return 3;
+      if (normalized === "GO FOR GOLD") return 4;
+      return 99;
+    };
+    scratch.rows.sort((a, b) => rowRank(a.label) - rowRank(b.label));
+  }
+
+  const order = ["FOREX CASH", "OTHER BALANCES", "LOTTOMATIK", "BANK BALANCES", "RECEIVABLES", "PAYABLES", "SCRATCH"];
   sections.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
 
   return { title, branch, shift, teller, timestamp, ref, grandTotal, cctv, isBackfill, sections };
@@ -116,7 +134,7 @@ function palette(name) {
     "BANK BALANCES": ["#0C2F34", "#52D6DE"],
     "RECEIVABLES": ["#38141D", "#F07793"],
     "PAYABLES": ["#3B1E0C", "#F59A52"],
-    "SCRATCH PHYSICAL COUNT": ["#261B43", "#B49AF7"],
+    "SCRATCH": ["#261B43", "#B49AF7"],
   };
   return map[name] || ["#17212E", "#A8B6C7"];
 }
