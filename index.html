@@ -729,6 +729,22 @@ function showCashCountModuleError() {
 
 function validateScratchAndContinue() {
   if(!cashCountModuleReady()) { showCashCountModuleError(); return; }
+  const arBookletsInput = document.getElementById("forex-ar-booklets");
+  const arBookletsError = document.getElementById("err-forex-ar-booklets");
+  const arBookletsRaw = arBookletsInput?.value?.trim() ?? "";
+  if(arBookletsError) arBookletsError.textContent = "";
+  if(arBookletsRaw === "") {
+    if(arBookletsError) arBookletsError.textContent = "Required — enter the number of AR booklets remaining (enter 0 if none).";
+    arBookletsInput?.scrollIntoView({behavior:"smooth",block:"center"});
+    arBookletsInput?.focus();
+    return;
+  }
+  if(!Number.isInteger(Number(arBookletsRaw)) || Number(arBookletsRaw) < 0) {
+    if(arBookletsError) arBookletsError.textContent = "Enter a whole number of 0 or more.";
+    arBookletsInput?.scrollIntoView({behavior:"smooth",block:"center"});
+    arBookletsInput?.focus();
+    return;
+  }
   const scratchResult = validateScratchPhysicalCount();
   const lottomatikResult = validateLottomatikWallet();
   const lottomatikCashResult = validateLottomatikCash();
@@ -1751,7 +1767,13 @@ async function handleSubmit() {
   const arBookletsError = document.getElementById("err-forex-ar-booklets");
   const arBookletsRaw = arBookletsInput?.value?.trim() ?? "";
   if(arBookletsError) arBookletsError.textContent = "";
-  if(arBookletsRaw !== "" && (!Number.isInteger(Number(arBookletsRaw)) || Number(arBookletsRaw) < 0)) {
+  if(arBookletsRaw === "") {
+    if(arBookletsError) arBookletsError.textContent = "Required — enter the number of AR booklets remaining (enter 0 if none).";
+    arBookletsInput?.scrollIntoView({behavior:"smooth",block:"center"});
+    arBookletsInput?.focus();
+    return;
+  }
+  if(!Number.isInteger(Number(arBookletsRaw)) || Number(arBookletsRaw) < 0) {
     if(arBookletsError) arBookletsError.textContent = "Enter a whole number of 0 or more.";
     arBookletsInput?.scrollIntoView({behavior:"smooth",block:"center"});
     arBookletsInput?.focus();
