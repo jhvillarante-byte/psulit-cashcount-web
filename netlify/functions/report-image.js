@@ -238,10 +238,11 @@ function renderSvg(data) {
         y += 120;
       }
       if (data.arBooklets !== null) {
-        body += `<rect x="${margin + 28}" y="${y}" width="${cardW - 56}" height="56" rx="10" fill="#F5F5F5" stroke="#CBD5E1" stroke-width="1"/>`;
-        body += `<text x="${margin + 52}" y="${y + 36}" font-size="22" font-weight="700" fill="#1E3A5F">📒 AR Booklets Remaining</text>`;
-        body += `<text x="${margin + cardW - 52}" y="${y + 36}" text-anchor="end" font-size="26" font-weight="700" fill="#1E3A5F">${esc(data.arBooklets)}</text>`;
-        y += 72;
+        // Keep the AR booklet count in the same dark theme as the rest of the report.
+        // Use plain text (no emoji) so the bundled report font can render it reliably.
+        body += `<text x="${margin + 52}" y="${y + 36}" font-size="22" font-weight="700" fill="#D4DEE9">AR Booklets Remaining</text>`;
+        body += `<text x="${margin + cardW - 52}" y="${y + 36}" text-anchor="end" font-size="26" font-weight="700" fill="#D6DAE0">${esc(data.arBooklets)}</text>`;
+        y += 60;
       }
     }
   }
