@@ -399,6 +399,14 @@
       </div>
     </div>
 
+    <div id="winning-cards-count-section" style="display:none;margin-top:20px;padding:16px;border:1.5px solid #e2e8f0;border-radius:10px;background:#f8fafc;">
+      <h3 style="font-size:15px;color:#1e3a5f;margin-bottom:4px;">🎟️ SCRATCH IT — WINNING CARDS COUNT</h3>
+      <p style="font-size:12px;color:#64748b;margin-bottom:14px;">Enter winning cards presented for payout. Enter 0 if none.</p>
+      <div class="field-group"><label class="field-label" for="winning_cards_go_banana">Go Banana — winning cards</label><input class="denom-input" style="width:100%;text-align:left;" type="number" inputmode="numeric" min="0" step="1" id="winning_cards_go_banana" placeholder="Required"><span class="error" id="err-winning_cards_go_banana"></span></div>
+      <div class="field-group"><label class="field-label" for="winning_cards_red_hot_7">Red Hot 7 — winning cards</label><input class="denom-input" style="width:100%;text-align:left;" type="number" inputmode="numeric" min="0" step="1" id="winning_cards_red_hot_7" placeholder="Required"><span class="error" id="err-winning_cards_red_hot_7"></span></div>
+      <div class="field-group" style="margin-bottom:0;"><label class="field-label" for="winning_cards_go_for_gold">Go For Gold — winning cards</label><input class="denom-input" style="width:100%;text-align:left;" type="number" inputmode="numeric" min="0" step="1" id="winning_cards_go_for_gold" placeholder="Required"><span class="error" id="err-winning_cards_go_for_gold"></span></div>
+    </div>
+
     <div id="scratch-physical-section" style="display:none;margin-top:20px;padding:16px;border:1.5px solid #e2e8f0;border-radius:10px;background:#f8fafc;">
       <h3 style="font-size:15px;color:#1e3a5f;margin-bottom:4px;">🎟️ SCRATCH IT — PHYSICAL COUNT</h3>
       <p style="font-size:12px;color:#64748b;margin-bottom:14px;">Enter the physical ticket quantity. Enter 0 when none are on hand.</p>
@@ -578,6 +586,7 @@ function select(field, val, btn) {
   const group = btn.parentElement;
   group.querySelectorAll(".radio-btn").forEach(b=>b.classList.remove("selected"));
   btn.classList.add("selected");
+  if(field==="branch" || field==="openClosing") refreshWinningCardsCount();
   if(field==="branch") { buildCCTV(); refreshScratchByBranch(); }
 }
 
@@ -686,6 +695,36 @@ function refreshScratchByBranch() {
   if(!required) clearScratchErrors();
 }
 
+function refreshWinningCardsCount() {
+  const section = document.getElementById("winning-cards-count-section");
+  if(!section) return;
+  const required = state.branch === "Alphaland" && state.openClosing === "Closing";
+  section.style.display = required ? "block" : "none";
+  if(!required) clearWinningCardsErrors();
+}
+const WINNING_CARD_FIELDS = [
+  {key:"winning_cards_go_banana",label:"Go Banana"},
+  {key:"winning_cards_red_hot_7",label:"Red Hot 7"},
+  {key:"winning_cards_go_for_gold",label:"Go For Gold"}
+];
+function clearWinningCardsErrors() {
+  WINNING_CARD_FIELDS.forEach(({key}) => { const e=document.getElementById("err-"+key); if(e) e.textContent=""; });
+}
+function validateWinningCardsCount() {
+  if(state.branch !== "Alphaland" || state.openClosing !== "Closing") return {valid:true,values:null,errors:{}};
+  clearWinningCardsErrors();
+  const values={}, errors={};
+  WINNING_CARD_FIELDS.forEach(({key}) => {
+    const raw=document.getElementById(key)?.value?.trim() ?? "";
+    const n=raw===""?NaN:Number(raw);
+    if(raw==="" || !Number.isInteger(n) || n<0) {
+      errors[key]="Enter a whole number (0 or more). This field cannot be blank.";
+      const e=document.getElementById("err-"+key); if(e) e.textContent=errors[key];
+    } else values[key]=n;
+  });
+  return {valid:Object.keys(errors).length===0,values:Object.keys(errors).length?null:values,errors};
+}
+
 function readScratchRawValues() {
   return Object.fromEntries(ScratchCount.PRODUCTS.map(({key}) => [key, document.getElementById(key)?.value ?? ""]));
 }
@@ -746,12 +785,14 @@ function validateScratchAndContinue() {
     return;
   }
 
+  const winningCardsResult = validateWinningCardsCount();
   const scratchResult = validateScratchPhysicalCount();
   const lottomatikResult = validateLottomatikWallet();
   const lottomatikCashResult = validateLottomatikCash();
   const thermalResult = validateLottomatikThermalRolls();
-  if(scratchResult.valid && lottomatikResult.valid && lottomatikCashResult.valid && thermalResult.valid) goTo(6);
+  if(scratchResult.valid && winningCardsResult.valid && lottomatikResult.valid && lottomatikCashResult.valid && thermalResult.valid) goTo(6);
   else {
+    if(!winningCardsResult.valid) { document.getElementById("winning-cards-count-section")?.scrollIntoView({behavior:"smooth",block:"center"}); const f=WINNING_CARD_FIELDS.find(({key})=>winningCardsResult.errors[key]); if(f) document.getElementById(f.key)?.focus(); }
     switchMainTab('others');
     if(!scratchResult.valid) switchOtherTab('scratch');
     else switchOtherTab('lottomatik');
@@ -1617,6 +1658,11 @@ function buildSummary() {
       });
     }
   }
+  const winningCardsSummary = validateWinningCardsCount();
+  if(winningCardsSummary.valid && winningCardsSummary.values) {
+    cs.innerHTML += `<div class="cur-summary-title" style="margin-top:10px">🎟️ Winning Cards Count</div>`;
+    WINNING_CARD_FIELDS.forEach(({key,label}) => { cs.innerHTML += `<div class="cur-summary-row"><span>${label}</span><strong>${winningCardsSummary.values[key]} cards</strong></div>`; });
+  }
   const lottomatikWallet = getLottomatikWalletBalance();
   const lottomatikCash = getLottomatikCashValues();
   const lottomatikThermalRolls = state.branch === "Alphaland" && isOtherSelected("lottomatik") ? getLottomatikThermalRolls() : null;
@@ -1724,6 +1770,11 @@ ${line}
   const recLines = formatRecPayForReport('receivables');
   const payLines = formatRecPayForReport('payables');
   if(recLines || payLines) msg += `${line}\n${recLines}${payLines}`;
+  const winningCards = validateWinningCardsCount();
+  if(winningCards.valid && winningCards.values) {
+    msg += `${line}\n🎟️ ${b}SCRATCH IT — WINNING CARDS COUNT${b}\n`;
+    WINNING_CARD_FIELDS.forEach(({key,label}) => { msg += `${label}: ${winningCards.values[key]} cards\n`; });
+  }
   let scratchReport = ScratchCount.formatReport(state.branch, isOtherSelected("scratch"), getScratchPhysicalCount(), bold);
   // Cash and winning-card payout are Telegram-only additions. Leave Slack summary unchanged.
   if(!bold && scratchReport && state.branch === "Alphaland" && isOtherSelected("scratch")) {
@@ -1869,12 +1920,14 @@ ${line}
 let isSubmitting = false;
 async function handleSubmit() {
   if(isSubmitting) return;
+  const winningCardsValidation = validateWinningCardsCount();
   const scratchValidation = validateScratchPhysicalCount();
   const lottomatikValidation = validateLottomatikWallet();
   const lottomatikCashValidation = validateLottomatikCash();
   const thermalRollValidation = validateLottomatikThermalRolls();
-  if(!scratchValidation.valid || !lottomatikValidation.valid || !lottomatikCashValidation.valid || !thermalRollValidation.valid) {
+  if(!winningCardsValidation.valid || !scratchValidation.valid || !lottomatikValidation.valid || !lottomatikCashValidation.valid || !thermalRollValidation.valid) {
     goTo(4);
+    if(!winningCardsValidation.valid) { document.getElementById("winning-cards-count-section")?.scrollIntoView({behavior:"smooth",block:"center"}); const f=WINNING_CARD_FIELDS.find(({key})=>winningCardsValidation.errors[key]); if(f) document.getElementById(f.key)?.focus(); }
     if(!lottomatikValidation.valid || !lottomatikCashValidation.valid || !thermalRollValidation.valid) switchOtherTab("lottomatik");
     const target = !scratchValidation.valid ? "scratch-physical-section" : "other-section-lottomatik";
     document.getElementById(target)?.scrollIntoView({behavior:"smooth",block:"center"});
