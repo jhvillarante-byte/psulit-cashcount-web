@@ -800,6 +800,31 @@ function validateScratchAndContinue() {
     return;
   }
 
+  const scratchSelected = isOtherSelected("scratch");
+  const lottomatikSelected = isOtherSelected("lottomatik");
+  if(!scratchSelected || !lottomatikSelected) {
+    switchMainTab("others");
+    const warning = document.getElementById("other-tabs-required-warning") || (() => {
+      const el=document.createElement("div");
+      el.id="other-tabs-required-warning";
+      el.className="error";
+      el.setAttribute("role","alert");
+      el.style.cssText="margin:12px 0;padding:12px;border:1px solid #dc2626;border-radius:8px;background:#fef2f2;color:#b91c1c;font-weight:600;";
+      const row=document.getElementById("other-tab-row");
+      if(row) row.parentNode.insertBefore(el,row);
+      return el;
+    })();
+    warning.textContent = !scratchSelected && !lottomatikSelected
+      ? "Please complete both Scratch and LottoMatik tabs before continuing."
+      : !scratchSelected
+        ? "Please complete the Scratch tab before continuing."
+        : "Please complete the LottoMatik tab before continuing.";
+    switchOtherTab(!scratchSelected ? "scratch" : "lottomatik");
+    warning.scrollIntoView({behavior:"smooth",block:"center"});
+    return;
+  }
+  const warning = document.getElementById("other-tabs-required-warning");
+  if(warning) warning.textContent = "";
   const winningCardsResult = validateWinningCardsCount();
   const scratchResult = validateScratchPhysicalCount();
   const lottomatikResult = validateLottomatikWallet();
@@ -1936,6 +1961,31 @@ ${line}
 let isSubmitting = false;
 async function handleSubmit() {
   if(isSubmitting) return;
+  const scratchSelected = isOtherSelected("scratch");
+  const lottomatikSelected = isOtherSelected("lottomatik");
+  if(!scratchSelected || !lottomatikSelected) {
+    goTo(4);
+    const warning = document.getElementById("other-tabs-required-warning") || (() => {
+      const el=document.createElement("div");
+      el.id="other-tabs-required-warning";
+      el.className="error";
+      el.setAttribute("role","alert");
+      el.style.cssText="margin:12px 0;padding:12px;border:1px solid #dc2626;border-radius:8px;background:#fef2f2;color:#b91c1c;font-weight:600;";
+      const row=document.getElementById("other-tab-row");
+      if(row) row.parentNode.insertBefore(el,row);
+      return el;
+    })();
+    warning.textContent = !scratchSelected && !lottomatikSelected
+      ? "Please complete both Scratch and LottoMatik tabs before submitting."
+      : !scratchSelected
+        ? "Please complete the Scratch tab before submitting."
+        : "Please complete the LottoMatik tab before submitting.";
+    switchOtherTab(!scratchSelected ? "scratch" : "lottomatik");
+    warning.scrollIntoView({behavior:"smooth",block:"center"});
+    return;
+  }
+  const warning = document.getElementById("other-tabs-required-warning");
+  if(warning) warning.textContent = "";
   const winningCardsValidation = validateWinningCardsCount();
   const scratchValidation = validateScratchPhysicalCount();
   const lottomatikValidation = validateLottomatikWallet();
