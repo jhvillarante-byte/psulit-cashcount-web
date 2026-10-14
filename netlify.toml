@@ -41,3 +41,9 @@
   to = "/.netlify/functions/preview-opening-report"
   status = 200
   force = true
+
+[[redirects]]
+  from = "/open-receivables"
+  to = "/.netlify/functions/open-receivables"
+  status = 200
+  force = true
