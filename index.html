@@ -815,7 +815,7 @@ function validateScratchAndContinue() {
       : !scratchSelected
         ? "Please complete the Scratch tab before continuing."
         : "Please complete the LottoMatik tab before continuing.";
-    switchOtherTab(!scratchSelected ? "scratch" : "lottomatik");
+    // Keep all item sections closed after Continue; staff must explicitly tap a tab.
     warning.scrollIntoView({behavior:"smooth",block:"center"});
     return;
   }
