@@ -1714,6 +1714,19 @@ function buildSummary() {
     if(lottomatikThermalRolls !== null) cs.innerHTML += `<div class="cur-summary-row"><span>Thermal Rolls on Hand</span><strong>${lottomatikThermalRolls} rolls</strong></div>`;
   }
 
+  // Include bank balances, receivables, and payables in the final review summary.
+  const recPayLabels = {bank:"🏦 Bank Balances",receivables:"📥 Receivables — Owed to PSulit",payables:"📤 Payables — Owed by PSulit"};
+  ["bank","receivables","payables"].forEach(type => {
+    const entries = getEntries(type);
+    cs.innerHTML += '<div class="cur-summary-title" style="margin-top:12px">' + recPayLabels[type] + '</div>';
+    if(!entries.length) { cs.innerHTML += '<div class="cur-summary-row"><span>None entered</span><strong>—</strong></div>'; return; }
+    entries.forEach(entry => {
+      const amount = (entry.cur === "PHP" ? "₱" : (entry.cur || "") + " ") + Number(entry.amt || 0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
+      const status = entry.settled ? " · Settled" : "";
+      const reason = entry.reason ? " · " + entry.reason : "";
+      cs.innerHTML += '<div class="cur-summary-row"><span>' + entry.name + status + reason + '</span><strong>' + amount + '</strong></div>';
+    });
+  });
   document.getElementById("declare-text").innerHTML=`I, <strong>${state.teller}</strong>, declare that I performed this cash count in full view of <strong>${state.cctvCam}</strong> at the time stated. The currencies and totals declared are accurate. I understand that any falsification is subject to disciplinary action under Psulit Money Changer's internal policy and applicable BSP regulations.`;
 }
 
