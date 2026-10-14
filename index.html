@@ -1699,10 +1699,12 @@ function buildSummary() {
       });
     }
   }
-  const winningCardsSummary = validateWinningCardsCount();
-  if(winningCardsSummary.valid && winningCardsSummary.values) {
-    cs.innerHTML += `<div class="cur-summary-title" style="margin-top:10px">🎟️ Winning Cards Count</div>`;
-    WINNING_CARD_FIELDS.forEach(({key,label}) => { cs.innerHTML += `<div class="cur-summary-row"><span>${label}</span><strong>${winningCardsSummary.values[key]} cards</strong></div>`; });
+  if(state.branch === "Alphaland" && isOtherSelected("scratch")) {
+    const winningCardValues = WINNING_CARD_FIELDS.map(({key,label}) => ({label,raw:document.getElementById(key)?.value?.trim() ?? ""}));
+    if(winningCardValues.some(item => item.raw !== "" && Number.isInteger(Number(item.raw)) && Number(item.raw) >= 0)) {
+      cs.innerHTML += `<div class="cur-summary-title" style="margin-top:10px">🎟️ Winning Cards Count</div>`;
+      winningCardValues.forEach(item => { if(item.raw !== "" && Number.isInteger(Number(item.raw)) && Number(item.raw) >= 0) cs.innerHTML += `<div class="cur-summary-row"><span>${item.label}</span><strong>${Number(item.raw)} cards</strong></div>`; });
+    }
   }
   const lottomatikWallet = getLottomatikWalletBalance();
   const lottomatikCash = getLottomatikCashValues();
@@ -1824,10 +1826,14 @@ ${line}
   const recLines = formatRecPayForReport('receivables');
   const payLines = formatRecPayForReport('payables');
   if(recLines || payLines) msg += `${line}\n${recLines}${payLines}`;
-  const winningCards = validateWinningCardsCount();
-  if(winningCards.valid && winningCards.values) {
-    msg += `${line}\n🎟️ ${b}SCRATCH IT — WINNING CARDS COUNT${b}\n`;
-    WINNING_CARD_FIELDS.forEach(({key,label}) => { msg += `${label}: ${winningCards.values[key]} cards\n`; });
+  // Include winning-card inventory in both Opening and Closing reports.
+  if(state.branch === "Alphaland" && isOtherSelected("scratch")) {
+    const winningCardValues = {};
+    WINNING_CARD_FIELDS.forEach(({key}) => { const raw = document.getElementById(key)?.value?.trim() ?? ""; winningCardValues[key] = raw === "" ? null : Number(raw); });
+    if(WINNING_CARD_FIELDS.some(({key}) => Number.isInteger(winningCardValues[key]) && winningCardValues[key] >= 0)) {
+      msg += `${line}\n🎟️ ${b}SCRATCH IT — WINNING CARDS COUNT${b}\n`;
+      WINNING_CARD_FIELDS.forEach(({key,label}) => { const value = winningCardValues[key]; if(Number.isInteger(value) && value >= 0) msg += `${label}: ${value} cards\n`; });
+    }
   }
   let scratchReport = ScratchCount.formatReport(state.branch, isOtherSelected("scratch"), getScratchPhysicalCount(), bold);
   // Cash and winning-card payout are Telegram-only additions. Leave Slack summary unchanged.
