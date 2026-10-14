@@ -116,6 +116,20 @@ function buildCashCountRows(message, branch) {
     addRow(`FUND-${slug(meta[1])}-${slug(meta[2])}`, { category: meta[0], currency: meta[2], fundAccount: meta[1], amount, phpEquivalent: amount, quantityUnits: "", notes: "" });
   }
 
+  // AR Booklets Remaining — save as a separate inventory row so the audit and sheet track it.
+  const arBooklets = numberFrom(firstMatch(text, /AR Booklets Remaining:\s*(\d+)/i));
+  if (arBooklets !== null) {
+    addRow("AR-BOOKLETS-REMAINING", {
+      category: "AR Inventory",
+      currency: "",
+      fundAccount: "AR Booklets",
+      amount: "",
+      phpEquivalent: "",
+      quantityUnits: arBooklets,
+      notes: "AR booklets remaining on hand"
+    });
+  }
+
   // Keep the reported Scratch winning-card payout as its own audit row.
   // This is a separate figure from the physical Scratch Cash on Hand balance.
   const scratchPayout = numberFrom(firstMatch(text, /Winning Cards\s*\/\s*Payout:\s*₱?([\d,]+(?:\.\d+)?)/i));

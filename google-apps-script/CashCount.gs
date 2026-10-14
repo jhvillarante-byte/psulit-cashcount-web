@@ -29,6 +29,7 @@ function doPost(e) {
 
     if (!expectedSecret) return output_({ ok: false, error: 'CASH_COUNT_WEBHOOK_SECRET is not configured.' });
     if (!payload.secret || payload.secret !== expectedSecret) return output_({ ok: false, error: 'Unauthorized.' });
+    if (payload.eventType === 'OPEN_RECEIVABLES') return openReceivablesResponse_(payload);
     if (payload.eventType !== 'CASH_COUNT_SYNC') return output_({ ok: false, error: 'Unsupported event type.' });
     if (payload.spreadsheetId && payload.spreadsheetId !== CASH_COUNT_SPREADSHEET_ID) {
       return output_({ ok: false, error: 'Wrong spreadsheet.' });
@@ -331,7 +332,7 @@ function doGet(e) {
     if (branch !== 'Alphaland' && branch !== 'Solaire') {
       return output_({ ok: false, error: 'Unknown branch.' });
     }
-    if (!/^\\d{4}-\\d{2}-\\d{2}$/.test(date)) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
       return output_({ ok: false, error: 'Invalid date. Use YYYY-MM-DD.' });
     }
 
@@ -400,7 +401,7 @@ function rowMatchesDate_(row, date) {
     const raw = String(row[key] || '').trim();
     if (!raw) continue;
 
-    if (/^\\d{4}-\\d{2}-\\d{2}$/.test(raw) && raw === date) return true;
+    if (/^\d{4}-\d{2}-\d{2}$/.test(raw) && raw === date) return true;
 
     const parsed = new Date(raw);
     if (!isNaN(parsed.getTime())) {
@@ -409,7 +410,7 @@ function rowMatchesDate_(row, date) {
     }
 
     // Handle common Philippine sheet display formats such as 10/01/2026 09:57:07.
-    const m = raw.match(/^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{4})/);
+    const m = raw.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})/);
     if (m) {
       const normalized = m[3] + '-' + String(m[1]).padStart(2, '0') + '-' + String(m[2]).padStart(2, '0');
       if (normalized === date) return true;

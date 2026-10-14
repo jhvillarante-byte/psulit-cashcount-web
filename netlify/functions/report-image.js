@@ -37,6 +37,8 @@ function parseReport(message) {
   const timestamp = first(text, /Timestamp:\s*([^\n]+)/i);
   const ref = first(text, /Ref Code:\s*([^\n]+)/i);
   const grandTotal = first(text, /Grand Total:\s*([^\n]+)/i);
+  const arBookletsMatch = text.match(/AR Booklets Remaining:\s*(\d+)/i);
+  const arBooklets = arBookletsMatch ? arBookletsMatch[1] : null;
   const cctv = first(text, /CCTV footage for\s+(.+?)\s+on record/i);
   const isBackfill = /BACKFILL:/i.test(text);
   const sections = [];
@@ -58,22 +60,12 @@ function parseReport(message) {
     if (/CCTV footage/i.test(rawLine)) continue;
     if (/^BACKFILL:/i.test(rawLine)) continue;
     if (/Submitted\s*&\s*Locked/i.test(rawLine)) continue;
+    if (/^📒\s*AR Booklets Remaining:/i.test(rawLine)) continue;
     if (/^Rates:/i.test(rawLine) || /exchangerate-api\.com/i.test(rawLine)) continue;
     if (/^[─-]{5,}$/.test(rawLine)) continue;
 
-    // Always render the manually entered AR booklet stock under Forex, even if the heading format changes.
-    const arBooklets = rawLine.match(/^\s*(?:AR Booklets Remaining|Forex AR Booklets?)\s*:\s*(.+?)\s*$/i);
-    if (arBooklets) {
-      const forex = getSection("FOREX CASH");
-      forex.rows = forex.rows.filter(row => !/^AR Booklets Remaining$/i.test(String(row.label || "")));
-      forex.rows.push({ label: "AR Booklets Remaining", value: arBooklets[1].trim() });
-      continue;
-    }
-
     const normalized = normalizeHeading(rawLine);
     if (normalized === "FOREX CASH" || normalized === "FOREX") { getSection("FOREX CASH"); continue; }
-    // Keep the manually entered Forex AR booklet count inside the Forex section on the report image.
-    if (normalized.includes("FOREX AR BOOKLET") && normalized.includes("PHYSICAL COUNT")) { getSection("FOREX CASH"); continue; }
     if (normalized === "OTHER BALANCES" || normalized === "OTHERS") { getSection("OTHER BALANCES"); continue; }
     if (normalized === "BANK BALANCES") { getSection("BANK BALANCES"); continue; }
     if (normalized.includes("RECEIVABLES") && normalized.includes("OWED TO PSULIT")) { getSection("RECEIVABLES"); continue; }
@@ -150,7 +142,7 @@ function parseReport(message) {
   const order = ["FOREX CASH", "OTHER BALANCES", "LOTTOMATIK", "BANK BALANCES", "RECEIVABLES", "PAYABLES", "SCRATCH"];
   sections.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
 
-  return { title, branch, shift, teller, timestamp, ref, grandTotal, cctv, isBackfill, sections };
+  return { title, branch, shift, teller, timestamp, ref, grandTotal, arBooklets, cctv, isBackfill, sections };
 }
 
 function palette(name) {
@@ -189,9 +181,6 @@ function flagSvg(code, x, y) {
 function rowSvg(sectionName, x, y, label, value, width) {
   const rightX = x + width;
   if (sectionName === "FOREX CASH") {
-    if (/^AR Booklets Remaining$/i.test(String(label || "").trim())) {
-      return `<text x="${x}" y="${y}" font-size="26" font-weight="400" fill="#D4DEE9">AR Booklets Remaining</text><text x="${rightX}" y="${y}" text-anchor="end" font-size="26" font-weight="700" fill="#D6DAE0">${esc(value)}</text>`;
-    }
     const code = String(label || "").trim().toUpperCase().split(/\s+/)[0];
     return `${flagSvg(code, x, y - 23)}<text x="${x + 56}" y="${y}" font-size="26" font-weight="600" fill="#EAF1F8">${esc(label)}</text><text x="${rightX}" y="${y}" text-anchor="end" font-size="26" font-weight="700" fill="#D6DAE0">${esc(value)}</text>`;
   }
@@ -231,17 +220,10 @@ function renderSvg(data) {
     if (!section.rows.length) continue;
     const [bg, fg] = palette(section.name);
     const sectionTitle = section.name === "FOREX CASH" ? "FOREIGN CURRENCY CASH (ON HAND)" : section.name;
-    // Keep the AR booklet row out of the Forex currency list so it can appear after the PHP-equivalent total.
-    const arBookletRows = section.name === "FOREX CASH"
-      ? section.rows.filter(row => /^AR Booklets Remaining$/i.test(String(row.label || "").trim()))
-      : [];
-    const visibleRows = section.name === "FOREX CASH"
-      ? section.rows.filter(row => !/^AR Booklets Remaining$/i.test(String(row.label || "").trim()))
-      : section.rows;
     body += `<rect x="${margin + 28}" y="${y}" width="${cardW - 56}" height="${sectionHeaderH}" rx="14" fill="${bg}" stroke="#24313F" stroke-width="1"/>`;
     body += `<text x="${margin + 50}" y="${y + 40}" font-size="24" font-weight="700" letter-spacing="1" fill="${fg}">${esc(sectionTitle)}</text>`;
     y += sectionHeaderH + 28;
-    for (const row of visibleRows) {
+    for (const row of section.rows) {
       body += rowSvg(section.name, margin + 52, y, row.label, row.value, cardW - 104);
       y += rowH;
     }
@@ -253,14 +235,12 @@ function renderSvg(data) {
       body += `<text x="${margin + cardW - 52}" y="${y + 42}" text-anchor="end" font-size="34" font-weight="700" fill="#D6DAE0">${esc(data.grandTotal)}</text>`;
       body += `<text x="${margin + 52}" y="${y + 72}" font-size="16" font-weight="400" fill="#79C99D">Converted value of Foreign Currency Cash only</text>`;
       y += 120;
-    }
-
-    if (section.name === "FOREX CASH") {
-      for (const row of arBookletRows) {
-        body += rowSvg(section.name, margin + 52, y, row.label, row.value, cardW - 104);
-        y += rowH;
+      if (data.arBooklets !== null) {
+        body += `<rect x="${margin + 28}" y="${y}" width="${cardW - 56}" height="56" rx="10" fill="#F5F5F5" stroke="#CBD5E1" stroke-width="1"/>`;
+        body += `<text x="${margin + 52}" y="${y + 36}" font-size="22" font-weight="700" fill="#1E3A5F">📒 AR Booklets Remaining</text>`;
+        body += `<text x="${margin + cardW - 52}" y="${y + 36}" text-anchor="end" font-size="26" font-weight="700" fill="#1E3A5F">${esc(data.arBooklets)}</text>`;
+        y += 72;
       }
-      if (arBookletRows.length) y += 16;
     }
   }
 
