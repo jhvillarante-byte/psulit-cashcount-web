@@ -698,8 +698,9 @@ function refreshScratchByBranch() {
 function refreshWinningCardsCount() {
   const section = document.getElementById("winning-cards-count-section");
   if(!section) return;
-  const required = state.branch === "Alphaland" && isOtherSelected("scratch");
-  section.style.display = required ? "block" : "none";
+  const activeTab = document.querySelector("#other-tab-row .tab-btn.active")?.id || "";
+  const required = state.branch === "Alphaland" && isOtherSelected("scratch") && activeTab === "other-tab-scratch";
+  section.style.setProperty("display", required ? "block" : "none", "important");
   WINNING_CARD_FIELDS.forEach(({key}) => {
     const input = document.getElementById(key);
     if(!input) return;
@@ -1052,15 +1053,18 @@ function rebuildOtherTabs(activeId) {
 
   ALL_OTHER_ITEMS.forEach(id => {
     const section = document.getElementById("other-section-"+id);
-    if(section) { section.classList.remove("active"); section.style.display="none"; }
+    if(section) {
+      section.classList.remove("active");
+      section.style.setProperty("display", "none", "important");
+    }
   });
   if(currentActive === "scratch") {
     const scratchDenoms = document.getElementById("other-section-scratch");
-    if(scratchDenoms) { scratchDenoms.classList.add("active"); scratchDenoms.style.display="block"; }
+    if(scratchDenoms) { scratchDenoms.classList.add("active"); scratchDenoms.style.setProperty("display", "block", "important"); }
     if(physSection && state.branch === "Alphaland") physSection.style.display="block";
   } else {
     const activeSection = document.getElementById("other-section-"+currentActive);
-    if(activeSection) { activeSection.classList.add("active"); activeSection.style.display="block"; }
+    if(activeSection) { activeSection.classList.add("active"); activeSection.style.setProperty("display", "block", "important"); }
     // Keep the LottoMatik tab dedicated to LottoMatik fields only.
     // Scratch physical count is shown only when the Scratch tab is active.
   }
