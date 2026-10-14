@@ -700,20 +700,15 @@ function refreshWinningCardsCount() {
   if(!section) return;
   const required = state.branch === "Alphaland" && isOtherSelected("scratch");
   section.style.display = required ? "block" : "none";
-  const opening = state.openClosing === "Opening";
   WINNING_CARD_FIELDS.forEach(({key}) => {
     const input = document.getElementById(key);
     if(!input) return;
-    if(opening) {
-      input.value = "0";
-      input.disabled = true;
-      input.style.background = "#eef2f7";
-      input.style.color = "#64748b";
-    } else {
-      input.disabled = false;
-      input.style.background = "";
-      input.style.color = "";
-    }
+    // Winning-card counts must be editable during both Opening and Closing.
+    // Keep 0 as the default for a new Opening count, but never lock the field.
+    if(state.openClosing === "Opening" && input.value.trim() === "") input.value = "0";
+    input.disabled = false;
+    input.style.background = "";
+    input.style.color = "";
   });
   if(!required) clearWinningCardsErrors();
 }
