@@ -1826,15 +1826,6 @@ ${line}
   const recLines = formatRecPayForReport('receivables');
   const payLines = formatRecPayForReport('payables');
   if(recLines || payLines) msg += `${line}\n${recLines}${payLines}`;
-  // Include winning-card inventory in both Opening and Closing reports.
-  if(state.branch === "Alphaland" && isOtherSelected("scratch")) {
-    const winningCardValues = {};
-    WINNING_CARD_FIELDS.forEach(({key}) => { const raw = document.getElementById(key)?.value?.trim() ?? ""; winningCardValues[key] = raw === "" ? null : Number(raw); });
-    if(WINNING_CARD_FIELDS.some(({key}) => Number.isInteger(winningCardValues[key]) && winningCardValues[key] >= 0)) {
-      msg += `${line}\n🎟️ ${b}SCRATCH IT — WINNING CARDS COUNT${b}\n`;
-      WINNING_CARD_FIELDS.forEach(({key,label}) => { const value = winningCardValues[key]; if(Number.isInteger(value) && value >= 0) msg += `${label}: ${value} cards\n`; });
-    }
-  }
   let scratchReport = ScratchCount.formatReport(state.branch, isOtherSelected("scratch"), getScratchPhysicalCount(), bold);
   // Cash and winning-card payout are Telegram-only additions. Leave Slack summary unchanged.
   if(!bold && scratchReport && state.branch === "Alphaland" && isOtherSelected("scratch")) {
@@ -1844,6 +1835,15 @@ ${line}
     scratchReport += `\nWinning Cards / Payout: ₱${scratchPayout.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
   }
   if(scratchReport) msg += `${line}\n${scratchReport}\n`;
+  // Keep winning-card inventory inside the Scratch part of the report, not under receivables.
+  if(state.branch === "Alphaland" && isOtherSelected("scratch")) {
+    const winningCardValues = {};
+    WINNING_CARD_FIELDS.forEach(({key}) => { const raw = document.getElementById(key)?.value?.trim() ?? ""; winningCardValues[key] = raw === "" ? null : Number(raw); });
+    if(WINNING_CARD_FIELDS.some(({key}) => Number.isInteger(winningCardValues[key]) && winningCardValues[key] >= 0)) {
+      msg += "SCRATCH IT — WINNING CARDS COUNT\n";
+      WINNING_CARD_FIELDS.forEach(({key,label}) => { const value = winningCardValues[key]; if(Number.isInteger(value) && value >= 0) msg += `${label}: ${value} cards\n`; });
+    }
+  }
   msg += `${line}\n`;
   msg += `✅ ${b}Submitted & Locked${b}\n`;
   msg += `⚠️ CCTV footage for ${b}${state.cctvCam}${b} on record.`;
