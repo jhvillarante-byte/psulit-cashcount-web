@@ -263,15 +263,6 @@
       </div>
       <div class="tab-row" id="tab-row"></div>
       <div id="denom-sections"></div>
-      <div id="forex-ar-booklet-section" style="margin-top:16px;padding:16px;border:1.5px solid #e2e8f0;border-radius:10px;background:#f8fafc;">
-        <h3 style="font-size:15px;color:#1e3a5f;margin-bottom:4px;">📘 FOREX AR BOOKLET — PHYSICAL COUNT</h3>
-        <p style="font-size:12px;color:#64748b;margin:0 0 12px;">Enter the number of AR booklets remaining.</p>
-        <div class="field-group" style="margin-bottom:0;">
-          <label class="field-label" for="forex-ar-booklets">AR Booklets Remaining</label>
-          <input class="denom-input" style="width:100%;text-align:left;" type="number" inputmode="numeric" min="0" step="1" id="forex-ar-booklets" placeholder="Enter quantity">
-          <span class="error" id="err-forex-ar-booklets"></span>
-        </div>
-      </div>
       <div class="all-cur-summary" id="all-cur-summary" style="display:none">
         <div class="all-cur-title">All Currency Total</div>
         <div id="all-cur-rows"></div>
@@ -450,15 +441,16 @@
   <!-- STEP 7 - Receivables & Payables -->
   <div class="section" id="step-7">
     <h2>Receivables & Payables</h2>
-    <p class="section-sub">Balances are carried forward from the previous cash count. Edit only if there are changes.</p>
+    <p class="section-sub">Receivables load automatically from the cash log and stay until their payment is recorded there. Payables are carried forward from the previous count — edit only if there are changes.</p>
 
     <!-- RECEIVABLES -->
     <div style="margin-bottom:20px;">
       <div style="font-weight:800;font-size:14px;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">
         📥 Receivables — Owed to PSulit
       </div>
+      <div id="receivables-status" style="font-size:12px;margin-bottom:10px;"></div>
       <div id="receivables-list"></div>
-      <button onclick="addEntry('receivables')" style="background:none;border:1.5px dashed #94a3b8;border-radius:9px;padding:10px 16px;color:#64748b;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-top:6px;">+ Add Receivable</button>
+      <button id="add-receivable-btn" onclick="addEntry('receivables')" style="background:none;border:1.5px dashed #94a3b8;border-radius:9px;padding:10px 16px;color:#64748b;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-top:6px;">+ Add Receivable</button>
     </div>
 
     <!-- PAYABLES -->
@@ -472,7 +464,7 @@
 
     <div class="btn-row" style="margin-top:16px">
       <button class="btn-secondary" onclick="goTo(6)">← Back</button>
-      <button class="btn-primary" onclick="goTo(5)" style="flex:1">Continue →</button>
+      <button class="btn-primary" onclick="continueFromReceivables()" style="flex:1">Continue →</button>
     </div>
   </div>
 
@@ -729,22 +721,6 @@ function showCashCountModuleError() {
 
 function validateScratchAndContinue() {
   if(!cashCountModuleReady()) { showCashCountModuleError(); return; }
-  const arBookletsInput = document.getElementById("forex-ar-booklets");
-  const arBookletsError = document.getElementById("err-forex-ar-booklets");
-  const arBookletsRaw = arBookletsInput?.value?.trim() ?? "";
-  if(arBookletsError) arBookletsError.textContent = "";
-  if(arBookletsRaw === "") {
-    if(arBookletsError) arBookletsError.textContent = "Required — enter the number of AR booklets remaining (enter 0 if none).";
-    arBookletsInput?.scrollIntoView({behavior:"smooth",block:"center"});
-    arBookletsInput?.focus();
-    return;
-  }
-  if(!Number.isInteger(Number(arBookletsRaw)) || Number(arBookletsRaw) < 0) {
-    if(arBookletsError) arBookletsError.textContent = "Enter a whole number of 0 or more.";
-    arBookletsInput?.scrollIntoView({behavior:"smooth",block:"center"});
-    arBookletsInput?.focus();
-    return;
-  }
   const scratchResult = validateScratchPhysicalCount();
   const lottomatikResult = validateLottomatikWallet();
   const lottomatikCashResult = validateLottomatikCash();
@@ -1241,7 +1217,7 @@ function addEntry(type, entry) {
 
 
 
-function loadStep(type) {
+function loadStepManual(type) {
   const branch = state.branch;
   if(!branch) return;
   const listId = type === 'receivables' ? 'receivables-list' : type === 'payables' ? 'payables-list' : 'bank-list';
@@ -1263,6 +1239,103 @@ function loadStep(type) {
   }
 }
 
+// ── AUTOMATIC RECEIVABLES (read from the cash log) ─────────────────
+// A receivable is listed here until a payment for it is recorded in the Expense &
+// Cash Movement log. If the cash log cannot be reached, the form falls back to the
+// last saved list (the old behaviour) so a teller is never blocked.
+const recAuto = { ok: false, loading: false, branch: '', issues: [] };
+
+function recEsc(v) {
+  return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+}
+
+function setRecStatus(kind, info) {
+  const box = document.getElementById('receivables-status');
+  const btn = document.getElementById('add-receivable-btn');
+  if(!box) return;
+  if(kind === 'loading') {
+    box.innerHTML = '<div style="color:#64748b;">⏳ Loading receivables from the cash log…</div>';
+  } else if(kind === 'ok') {
+    const issues = ((info && info.issues) || []).map(t => `<div style="margin-top:4px;color:#92400e;background:#fef9ec;border-radius:6px;padding:4px 8px;">⚠️ ${recEsc(t)}</div>`).join('');
+    box.innerHTML = `<div style="color:#15803d;background:#f0fdf4;border-radius:6px;padding:6px 10px;">✅ Automatic — from the Expense &amp; Cash Movement log. A receivable disappears once its payment is recorded there.</div>${issues}`;
+  } else {
+    box.innerHTML = `<div style="color:#92400e;background:#fef9ec;border-radius:6px;padding:6px 10px;">⚠️ Could not reach the cash log${info ? ' (' + recEsc(info) + ')' : ''}. Showing the last saved list — check each balance before continuing.</div>`;
+  }
+  if(btn) btn.textContent = kind === 'ok' ? '+ Add a receivable that is NOT in the cash log' : '+ Add Receivable';
+}
+
+function makeAutoEntryHTML(id, entry) {
+  const amt = Number(entry.amount) || 0;
+  const amtText = amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const last = entry.lastActivity ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">Last activity ${recEsc(entry.lastActivity)}</div>` : '';
+  return `
+    <div id="entry-${id}" data-locked="1" data-auto="1" style="background:#f0fdf4;border-radius:10px;padding:12px;margin-bottom:10px;border:1.5px solid #bbf7d0;">
+      <div style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+          <div style="font-weight:700;font-size:14px;color:#1e3a5f;">${recEsc(entry.name)}</div>
+          <div style="font-size:15px;color:#16a34a;font-weight:700;margin-top:2px;">${fmtAmt(amt, 'PHP')}</div>
+          ${last}
+        </div>
+        <span style="font-size:11px;font-weight:800;color:#15803d;background:#dcfce7;border-radius:6px;padding:4px 8px;">FROM CASH LOG</span>
+      </div>
+      <input type="hidden" id="name-${id}" value="${recEsc(entry.name)}">
+      <input type="hidden" id="cur-${id}" value="PHP">
+      <input type="hidden" id="amt-${id}" value="${amtText}">
+      <input type="hidden" id="settled-${id}" value="0">
+      <input type="hidden" id="savedreason-${id}" value="">
+    </div>`;
+}
+
+function addAutoReceivable(entry) {
+  const id = `receivables-${++recCount}`;
+  const div = document.createElement('div');
+  div.innerHTML = makeAutoEntryHTML(id, entry);
+  document.getElementById('receivables-list').appendChild(div.firstElementChild);
+}
+
+async function loadAutoReceivables() {
+  const branch = state.branch;
+  const list = document.getElementById('receivables-list');
+  if(!branch || !list) return;
+  if(recAuto.loading) return;
+  if(recAuto.ok && recAuto.branch === branch && list.querySelector('[data-auto="1"]')) return;   // already loaded for this branch
+  recAuto.loading = true;
+  setRecStatus('loading');
+  try {
+    const res = await fetch(`${BACKEND}/open-receivables`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.sessionToken}` },
+      body: JSON.stringify({ branch })
+    });
+    let data = {};
+    try { data = await res.json(); } catch(e) {}
+    if(!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    list.innerHTML = '';
+    recCount = 0;
+    (data.receivables || []).forEach(addAutoReceivable);
+    // Hive Commission stays a line the teller fills in by hand (it is not a cash-log receivable).
+    addEntry('receivables', { name: 'Hive Commission', cur: 'PHP', amt: 0 });
+    recAuto.ok = true; recAuto.branch = branch; recAuto.issues = data.issues || [];
+    setRecStatus('ok', data);
+  } catch(e) {
+    recAuto.ok = false;
+    setRecStatus('failed', e && e.message ? e.message : '');
+    loadStepManual('receivables');                                   // last saved list, as before
+  } finally {
+    recAuto.loading = false;
+  }
+}
+
+function loadStep(type) {
+  if(type === 'receivables') return loadAutoReceivables();
+  return loadStepManual(type);
+}
+
+function continueFromReceivables() {
+  if(recAuto.loading) { alert('Receivables are still loading from the cash log. Please wait a moment and try again.'); return; }
+  goTo(5);
+}
+
 function getEntries(type) {
   const listId = type === 'receivables' ? 'receivables-list' : type === 'payables' ? 'payables-list' : 'bank-list';
   const list = document.getElementById(listId);
@@ -1275,7 +1348,8 @@ function getEntries(type) {
     const amt = parseBankInput(`amt-${entryId}`);
     const settled = document.getElementById(`settled-${entryId}`)?.value === '1';
     const reason = document.getElementById(`savedreason-${entryId}`)?.value || '';
-    if(name) entries.push({ name, cur, amt, settled, reason });
+    const manualLine = type === 'receivables' && recAuto.ok && div.dataset.auto !== '1' && !/^hive commission$/i.test(name);
+    if(name) entries.push({ name, cur, amt, settled, reason: manualLine ? (reason || 'Manual — not in cash log') : reason });
   });
   return entries;
 }
@@ -1308,6 +1382,7 @@ function resetRecPay() {
   document.getElementById('payables-list').innerHTML = '';
   document.getElementById('bank-list').innerHTML = '';
   recCount = 0; payCount = 0; bankCount = 0;
+  recAuto.ok = false; recAuto.branch = ''; recAuto.loading = false;
 }
 
 function formatBankInput(input) {
@@ -1480,10 +1555,6 @@ function buildSummary() {
   });
   if(!hasForex) cs.innerHTML+=`<div style="font-size:13px;color:#94a3b8;padding:4px 0">_(none selected)_</div>`;
 
-  // Forex AR booklet count — show it on the final summary before submission.
-  const arBookletsSummaryRaw = document.getElementById("forex-ar-booklets")?.value?.trim() ?? "";
-  cs.innerHTML += `<div class="cur-summary-title" style="margin-top:10px">📘 Forex AR Booklet</div><div class="cur-summary-row"><span>AR Booklets Remaining</span><strong style="color:#1e3a5f;font-size:16px">${arBookletsSummaryRaw === "" ? "Required" : Number(arBookletsSummaryRaw) + " booklets"}</strong></div>`;
-
   // Others totals
   const OTHERS_LABELS_SUMMARY = {hive:"🐝 Hive", juanpay:"📱 JuanPay", scratch:"🎫 Scratch"};
   const oth = getOthers();
@@ -1580,13 +1651,6 @@ ${line}
     msg += `📊 Rates: exchangerate-api.com
 `;
   }
-
-  // Include AR booklet inventory in the actual Telegram/image report builder (not only Slack).
-  const arBookletsReportRaw = document.getElementById("forex-ar-booklets")?.value?.trim() ?? "";
-  msg += `📘 FOREX AR BOOKLET — PHYSICAL COUNT
-`;
-  msg += `AR Booklets Remaining: ${arBookletsReportRaw === "" ? "NOT ENTERED" : Number(arBookletsReportRaw)}
-`;
 
   // Others
   const OTHERS_LABELS = {hive:"🐝 Hive", juanpay:"📱 JuanPay", scratch:"🎫 Scratch", lottomatikCash:"🎰 LottoMatik Cash", lottomatikWallet:"📱 LottoMatik Wallet"};
@@ -1729,11 +1793,6 @@ ${cur.flag} *${cur.code} — ${cur.name}*
     }
   });
 
-  const arBookletsRaw = document.getElementById("forex-ar-booklets")?.value?.trim() ?? "";
-  if(arBookletsRaw !== "") {
-    msg += `\n📘 *FOREX AR BOOKLET — PHYSICAL COUNT*\n  *AR Booklets Remaining: ${Number(arBookletsRaw)}*\n`;
-  }
-
   // Others
   const OTHERS_LABELS_MAP = {hive:"🐝 Hive", juanpay:"📱 JuanPay", scratch:"🎫 Scratch", lottomatikCash:"🎰 LottoMatik Cash", lottomatikWallet:"📱 LottoMatik Wallet"};
   const PHP_DENOM_LABELS = [{l:"₱1,000",v:1000},{l:"₱500",v:500},{l:"₱200",v:200},{l:"₱100",v:100},{l:"₱50",v:50},{l:"₱20",v:20},{l:"₱10",v:10},{l:"₱5",v:5},{l:"₱1",v:1},{l:"25¢",v:0.25},{l:"10¢",v:0.1},{l:"5¢",v:0.05},{l:"1¢",v:0.01}];
@@ -1774,22 +1833,6 @@ ${line}
 let isSubmitting = false;
 async function handleSubmit() {
   if(isSubmitting) return;
-  const arBookletsInput = document.getElementById("forex-ar-booklets");
-  const arBookletsError = document.getElementById("err-forex-ar-booklets");
-  const arBookletsRaw = arBookletsInput?.value?.trim() ?? "";
-  if(arBookletsError) arBookletsError.textContent = "";
-  if(arBookletsRaw === "") {
-    if(arBookletsError) arBookletsError.textContent = "Required — enter the number of AR booklets remaining (enter 0 if none).";
-    arBookletsInput?.scrollIntoView({behavior:"smooth",block:"center"});
-    arBookletsInput?.focus();
-    return;
-  }
-  if(!Number.isInteger(Number(arBookletsRaw)) || Number(arBookletsRaw) < 0) {
-    if(arBookletsError) arBookletsError.textContent = "Enter a whole number of 0 or more.";
-    arBookletsInput?.scrollIntoView({behavior:"smooth",block:"center"});
-    arBookletsInput?.focus();
-    return;
-  }
   const scratchValidation = validateScratchPhysicalCount();
   const lottomatikValidation = validateLottomatikWallet();
   const lottomatikCashValidation = validateLottomatikCash();
