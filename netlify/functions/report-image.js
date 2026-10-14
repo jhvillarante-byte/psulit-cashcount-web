@@ -70,7 +70,8 @@ function parseReport(message) {
     if (normalized === "BANK BALANCES") { getSection("BANK BALANCES"); continue; }
     if (normalized.includes("RECEIVABLES") && normalized.includes("OWED TO PSULIT")) { getSection("RECEIVABLES"); continue; }
     if (normalized.includes("PAYABLES") && normalized.includes("OWED BY PSULIT")) { getSection("PAYABLES"); continue; }
-    if (normalized.includes("SCRATCH IT") && normalized.includes("PHYSICAL COUNT")) { getSection("SCRATCH"); continue; }
+    if (normalized.includes("SCRATCH IT") && normalized.includes("PHYSICAL COUNT")) { getSection("REMAINING SCRATCH CARDS"); continue; }
+    if (normalized.includes("SCRATCH IT") && normalized.includes("WINNING CARDS COUNT")) { getSection("WINNING CARDS PRESENTED TODAY"); continue; }
 
     const fx = rawLine.match(/^(?:[^A-Z0-9]*)([A-Z]{3}):\s*(.+)$/);
     if (fx && FOREX_CODES.has(fx[1])) {
@@ -93,6 +94,12 @@ function parseReport(message) {
     else {
       m = rawLine.match(/^(.+?)\s+[—-]\s+(.+)$/);
       if (m) { label = m[1].trim(); value = m[2].trim(); } else label = rawLine;
+    }
+    // Route Scratch cash and payout to their own section even though physical inventory
+    // appears first in the submitted message.
+    if (/^cash on hand$/i.test(label) || /^winning cards\s*\/\s*payout$/i.test(label)) {
+      getSection("SCRATCH").rows.push({ label, value });
+      continue;
     }
     current.rows.push({ label, value });
   }
@@ -139,7 +146,7 @@ function parseReport(message) {
     scratch.rows.sort((a, b) => rowRank(a.label) - rowRank(b.label));
   }
 
-  const order = ["FOREX CASH", "OTHER BALANCES", "LOTTOMATIK", "BANK BALANCES", "RECEIVABLES", "PAYABLES", "SCRATCH"];
+  const order = ["FOREX CASH", "OTHER BALANCES", "LOTTOMATIK", "BANK BALANCES", "RECEIVABLES", "PAYABLES", "SCRATCH", "REMAINING SCRATCH CARDS", "WINNING CARDS PRESENTED TODAY"];
   sections.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
 
   return { title, branch, shift, teller, timestamp, ref, grandTotal, arBooklets, cctv, isBackfill, sections };
@@ -154,6 +161,8 @@ function palette(name) {
     "RECEIVABLES": ["#38141D", "#F07793"],
     "PAYABLES": ["#3B1E0C", "#F59A52"],
     "SCRATCH": ["#261B43", "#B49AF7"],
+    "REMAINING SCRATCH CARDS": ["#0C2F34", "#52D6DE"],
+    "WINNING CARDS PRESENTED TODAY": ["#123322", "#56D98A"],
   };
   return map[name] || ["#17212E", "#A8B6C7"];
 }
