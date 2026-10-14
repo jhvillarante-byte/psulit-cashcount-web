@@ -229,12 +229,14 @@ function renderSvg(data) {
     }
     y += 16;
 
-    if (section.name === "FOREX CASH" && data.grandTotal) {
-      body += `<rect x="${margin + 28}" y="${y}" width="${cardW - 56}" height="92" rx="18" fill="#0D3322" stroke="#31C978" stroke-width="2"/>`;
-      body += `<text x="${margin + 52}" y="${y + 40}" font-size="22" font-weight="700" fill="#91E5B5">TOTAL (PHP EQUIVALENT)</text>`;
-      body += `<text x="${margin + cardW - 52}" y="${y + 42}" text-anchor="end" font-size="34" font-weight="700" fill="#D6DAE0">${esc(data.grandTotal)}</text>`;
-      body += `<text x="${margin + 52}" y="${y + 72}" font-size="16" font-weight="400" fill="#79C99D">Converted value of Foreign Currency Cash only</text>`;
-      y += 120;
+    if (section.name === "FOREX CASH") {
+      if (data.grandTotal) {
+        body += `<rect x="${margin + 28}" y="${y}" width="${cardW - 56}" height="92" rx="18" fill="#0D3322" stroke="#31C978" stroke-width="2"/>`;
+        body += `<text x="${margin + 52}" y="${y + 40}" font-size="22" font-weight="700" fill="#91E5B5">TOTAL (PHP EQUIVALENT)</text>`;
+        body += `<text x="${margin + cardW - 52}" y="${y + 42}" text-anchor="end" font-size="34" font-weight="700" fill="#D6DAE0">${esc(data.grandTotal)}</text>`;
+        body += `<text x="${margin + 52}" y="${y + 72}" font-size="16" font-weight="400" fill="#79C99D">Converted value of Foreign Currency Cash only</text>`;
+        y += 120;
+      }
       if (data.arBooklets !== null) {
         body += `<rect x="${margin + 28}" y="${y}" width="${cardW - 56}" height="56" rx="10" fill="#F5F5F5" stroke="#CBD5E1" stroke-width="1"/>`;
         body += `<text x="${margin + 52}" y="${y + 36}" font-size="22" font-weight="700" fill="#1E3A5F">📒 AR Booklets Remaining</text>`;
