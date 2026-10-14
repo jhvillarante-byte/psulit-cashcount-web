@@ -1012,7 +1012,7 @@ function toggleOther(itemId, btn) {
     rebuildOtherTabs(nextSelected || null);
   } else {
     btn.classList.add("selected");
-    rebuildOtherTabs(null); // show tabs only; require an explicit tab click to open a section
+    rebuildOtherTabs(itemId); // open only the item the user explicitly selected
   }
   refreshScratchByBranch();
   if(itemId === "lottomatik" && !btn.classList.contains("selected")) {
