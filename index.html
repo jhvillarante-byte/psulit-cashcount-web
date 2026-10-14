@@ -1069,6 +1069,7 @@ function rebuildOtherTabs(activeId) {
     // Keep the LottoMatik tab dedicated to LottoMatik fields only.
     // Scratch physical count is shown only when the Scratch tab is active.
   }
+  refreshWinningCardsCount();
   const cashInput = document.getElementById("scratch_cash");
   if(cashInput) cashInput.value = getOtherTotal("scratch").toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
 }
