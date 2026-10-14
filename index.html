@@ -1011,7 +1011,7 @@ function toggleOther(itemId, btn) {
     rebuildOtherTabs(nextSelected || null);
   } else {
     btn.classList.add("selected");
-    rebuildOtherTabs(itemId); // switch to this item immediately
+    rebuildOtherTabs(null); // show tabs only; require an explicit tab click to open a section
   }
   refreshScratchByBranch();
   if(itemId === "lottomatik" && !btn.classList.contains("selected")) {
@@ -1037,7 +1037,7 @@ function rebuildOtherTabs(activeId) {
   if(physSection) physSection.style.display = "none";
   if(selected.length === 0) { tabRow.style.display="none"; return; }
 
-  const currentActive = activeId && selected.includes(activeId) ? activeId : selected[0];
+  const currentActive = activeId && selected.includes(activeId) ? activeId : null;
   tabRow.style.display = "flex";
   selected.forEach(id => {
     const cfg = {hive:"🐝 Hive", juanpay:"📱 JuanPay", scratch:"🎫 Scratch", lottomatik:"🎰 LottoMatik"};
