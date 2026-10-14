@@ -267,6 +267,16 @@
         <div class="all-cur-title">All Currency Total</div>
         <div id="all-cur-rows"></div>
       </div>
+
+    <div class="field-group" style="margin-top:16px;padding:14px 16px;background:#f8fafc;border-radius:10px;border:1.5px solid #e2e8f0;">
+      <label class="field-label" for="ar_booklets_remaining" style="font-weight:700;color:#1e3a5f;">📒 AR Booklets Remaining <span style="color:#dc2626;">*</span></label>
+      <p style="font-size:12px;color:#64748b;margin:4px 0 10px;">Count the unused AR booklets on hand and enter the total number of booklets remaining.</p>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <input type="number" min="0" step="1" id="ar_booklets_remaining" placeholder="0" inputmode="numeric" style="width:120px;padding:10px 14px;border-radius:8px;border:1.5px solid #e2e8f0;font-size:18px;font-weight:700;outline:none;text-align:center;">
+        <span style="font-size:14px;color:#64748b;">booklet(s)</span>
+      </div>
+      <span class="error" id="err-ar-booklets" style="display:block;margin-top:6px;"></span>
+    </div>
     </div>
 
     <!-- OTHERS PANEL -->
@@ -421,15 +431,7 @@
     </div>
 
 
-    <div class="field-group" style="margin-top:16px;padding:14px 16px;background:#f8fafc;border-radius:10px;border:1.5px solid #e2e8f0;">
-      <label class="field-label" for="ar_booklets_remaining" style="font-weight:700;color:#1e3a5f;">📒 AR Booklets Remaining <span style="color:#dc2626;">*</span></label>
-      <p style="font-size:12px;color:#64748b;margin:4px 0 10px;">Count the unused AR booklets on hand and enter the total number of booklets remaining.</p>
-      <div style="display:flex;align-items:center;gap:8px;">
-        <input type="number" min="0" step="1" id="ar_booklets_remaining" placeholder="0" inputmode="numeric" style="width:120px;padding:10px 14px;border-radius:8px;border:1.5px solid #e2e8f0;font-size:18px;font-weight:700;outline:none;text-align:center;">
-        <span style="font-size:14px;color:#64748b;">booklet(s)</span>
-      </div>
-      <span class="error" id="err-ar-booklets" style="display:block;margin-top:6px;"></span>
-    </div>
+
 
     <div class="btn-row" style="margin-top:16px">      <button class="btn-secondary" onclick="goTo(3)">← Back</button>
       <button class="btn-primary" onclick="validateScratchAndContinue()" style="flex:1">Continue →</button>
@@ -730,23 +732,31 @@ function showCashCountModuleError() {
 
 function validateScratchAndContinue() {
   if(!cashCountModuleReady()) { showCashCountModuleError(); return; }
+
+  const arInput = document.getElementById('ar_booklets_remaining');
+  const arErr = document.getElementById('err-ar-booklets');
+  const arRaw = arInput?.value?.trim() ?? '';
+  const arVal = arRaw === '' ? NaN : Number(arRaw);
+  const arValid = arRaw !== '' && Number.isInteger(arVal) && arVal >= 0;
+  if(arErr) arErr.textContent = arValid ? '' : 'Please enter the number of AR booklets remaining (0 or more).';
+  if(!arValid) {
+    switchMainTab('forex');
+    arInput?.scrollIntoView({behavior:'smooth', block:'center'});
+    arInput?.focus();
+    return;
+  }
+
   const scratchResult = validateScratchPhysicalCount();
   const lottomatikResult = validateLottomatikWallet();
   const lottomatikCashResult = validateLottomatikCash();
   const thermalResult = validateLottomatikThermalRolls();
-  const arInput = document.getElementById('ar_booklets_remaining');
-  const arErr = document.getElementById('err-ar-booklets');
-  const arVal = arInput ? parseInt(arInput.value, 10) : NaN;
-  const arValid = !isNaN(arVal) && arVal >= 0;
-  if(arErr) arErr.textContent = arValid ? '' : 'Please enter the number of AR booklets remaining (0 or more).';
-  if(scratchResult.valid && lottomatikResult.valid && lottomatikCashResult.valid && thermalResult.valid && arValid) goTo(6);
+  if(scratchResult.valid && lottomatikResult.valid && lottomatikCashResult.valid && thermalResult.valid) goTo(6);
   else {
-    switchMainTab("others");
-    if(!scratchResult.valid) switchOtherTab("scratch");
-    else if(!thermalResult.valid) switchOtherTab("lottomatik");
-    else switchOtherTab("lottomatik");
-    const error = [...document.querySelectorAll(".error")].find(el => el.textContent.trim() && el.getClientRects().length);
-    if(error) error.scrollIntoView({behavior:"smooth", block:"center"});
+    switchMainTab('others');
+    if(!scratchResult.valid) switchOtherTab('scratch');
+    else switchOtherTab('lottomatik');
+    const error = [...document.querySelectorAll('.error')].find(el => el.textContent.trim() && el.getClientRects().length);
+    if(error) error.scrollIntoView({behavior:'smooth', block:'center'});
   }
 }
 
@@ -1232,6 +1242,8 @@ function addEntry(type, entry) {
 
 
 function loadStepManual(type) {
+  // Receivables are live-sheet-only; never populate them from old local/manual balances.
+  if(type === 'receivables') return;
   const branch = state.branch;
   if(!branch) return;
   const listId = type === 'receivables' ? 'receivables-list' : type === 'payables' ? 'payables-list' : 'bank-list';
@@ -1248,15 +1260,11 @@ function loadStepManual(type) {
       document.getElementById(listId).appendChild(div.firstElementChild);
     });
   }
-  if(type === 'receivables' && !saved.some(e => String(e.name||'').trim().toLowerCase() === 'hive commission')) {
-    addEntry('receivables', { name:'Hive Commission', cur:'PHP', amt:0 });
-  }
 }
 
 // ── AUTOMATIC RECEIVABLES (read from the cash log) ─────────────────
-// A receivable is listed here until a payment for it is recorded in the Expense &
-// Cash Movement log. If the cash log cannot be reached, the form falls back to the
-// last saved list (the old behaviour) so a teller is never blocked.
+// Receivables must load from the live Expense & Cash Movement log. If the live
+// source cannot be reached, block progression instead of showing stale/manual balances.
 const recAuto = { ok: false, loading: false, branch: '', issues: [] };
 
 function recEsc(v) {
@@ -1265,7 +1273,6 @@ function recEsc(v) {
 
 function setRecStatus(kind, info) {
   const box = document.getElementById('receivables-status');
-  const btn = document.getElementById('add-receivable-btn');
   if(!box) return;
   if(kind === 'loading') {
     box.innerHTML = '<div style="color:#64748b;">⏳ Loading receivables from the cash log…</div>';
@@ -1273,9 +1280,8 @@ function setRecStatus(kind, info) {
     const issues = ((info && info.issues) || []).map(t => `<div style="margin-top:4px;color:#92400e;background:#fef9ec;border-radius:6px;padding:4px 8px;">⚠️ ${recEsc(t)}</div>`).join('');
     box.innerHTML = `<div style="color:#15803d;background:#f0fdf4;border-radius:6px;padding:6px 10px;">✅ Automatic — from the Expense &amp; Cash Movement log. A receivable disappears once its payment is recorded there.</div>${issues}`;
   } else {
-    box.innerHTML = `<div style="color:#92400e;background:#fef9ec;border-radius:6px;padding:6px 10px;">⚠️ Could not reach the cash log${info ? ' (' + recEsc(info) + ')' : ''}. Showing the last saved list — check each balance before continuing.</div>`;
+    box.innerHTML = `<div style="color:#92400e;background:#fef9ec;border-radius:6px;padding:6px 10px;">⚠️ Could not load receivables from the live cash log${info ? ' (' + recEsc(info) + ')' : ''}. Manual entry is disabled. Please retry.</div><button type="button" onclick="retryAutoReceivables()" style="margin-top:8px;background:#1e3a5f;color:#fff;border:0;border-radius:7px;padding:8px 12px;font-weight:700;cursor:pointer;">Retry loading</button>`;
   }
-  if(btn) btn.textContent = kind === 'ok' ? '+ Add a receivable that is NOT in the cash log' : '+ Add Receivable';
 }
 
 function makeAutoEntryHTML(id, entry) {
@@ -1327,14 +1333,14 @@ async function loadAutoReceivables() {
     list.innerHTML = '';
     recCount = 0;
     (data.receivables || []).forEach(addAutoReceivable);
-    // Hive Commission stays a line the teller fills in by hand (it is not a cash-log receivable).
-    addEntry('receivables', { name: 'Hive Commission', cur: 'PHP', amt: 0 });
     recAuto.ok = true; recAuto.branch = branch; recAuto.issues = data.issues || [];
     setRecStatus('ok', data);
   } catch(e) {
     recAuto.ok = false;
+    recAuto.branch = '';
+    list.innerHTML = '';
+    recCount = 0;
     setRecStatus('failed', e && e.message ? e.message : '');
-    loadStepManual('receivables');                                   // last saved list, as before
   } finally {
     recAuto.loading = false;
   }
@@ -1345,8 +1351,19 @@ function loadStep(type) {
   return loadStepManual(type);
 }
 
+function retryAutoReceivables() {
+  if(recAuto.loading) return;
+  recAuto.ok = false;
+  recAuto.branch = '';
+  loadAutoReceivables();
+}
+
 function continueFromReceivables() {
   if(recAuto.loading) { alert('Receivables are still loading from the cash log. Please wait a moment and try again.'); return; }
+  if(!recAuto.ok || recAuto.branch !== state.branch) {
+    alert('Receivables have not been loaded from the live cash log. Please retry before continuing.');
+    return;
+  }
   goTo(5);
 }
 
@@ -1569,6 +1586,9 @@ function buildSummary() {
   });
   if(!hasForex) cs.innerHTML+=`<div style="font-size:13px;color:#94a3b8;padding:4px 0">_(none selected)_</div>`;
 
+  const arBookletsSummaryRaw = document.getElementById('ar_booklets_remaining')?.value?.trim() ?? '';
+  cs.innerHTML += `<div class="cur-summary-title" style="margin-top:10px">📒 Forex AR Booklet</div><div class="cur-summary-row"><span>AR Booklets Remaining</span><strong style="color:#1e3a5f;font-size:16px">${arBookletsSummaryRaw === '' ? 'Required' : Number(arBookletsSummaryRaw) + ' booklets'}</strong></div>`;
+
   // Others totals
   const OTHERS_LABELS_SUMMARY = {hive:"🐝 Hive", juanpay:"📱 JuanPay", scratch:"🎫 Scratch"};
   const oth = getOthers();
@@ -1662,12 +1682,11 @@ ${line}
     const grandTotal = phpTotal + ocTotal;
     msg += `💵 ${b}Grand Total: ₱${grandTotal.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}${b}
 `;
-  const arBooklets = parseInt(document.getElementById('ar_booklets_remaining')?.value || '', 10);
-  if(!isNaN(arBooklets)) msg += `📒 AR Booklets Remaining: ${arBooklets}\n`;
-  msg += ``;
     msg += `📊 Rates: exchangerate-api.com
 `;
   }
+  const arBooklets = Number(document.getElementById('ar_booklets_remaining')?.value ?? NaN);
+  if(Number.isInteger(arBooklets) && arBooklets >= 0) msg += `📒 AR Booklets Remaining: ${arBooklets}\n`;
 
   // Others
   const OTHERS_LABELS = {hive:"🐝 Hive", juanpay:"📱 JuanPay", scratch:"🎫 Scratch", lottomatikCash:"🎰 LottoMatik Cash", lottomatikWallet:"📱 LottoMatik Wallet"};
