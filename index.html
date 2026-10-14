@@ -698,8 +698,23 @@ function refreshScratchByBranch() {
 function refreshWinningCardsCount() {
   const section = document.getElementById("winning-cards-count-section");
   if(!section) return;
-  const required = state.branch === "Alphaland" && state.openClosing === "Closing" && isOtherSelected("scratch");
+  const required = state.branch === "Alphaland" && isOtherSelected("scratch");
   section.style.display = required ? "block" : "none";
+  const opening = state.openClosing === "Opening";
+  WINNING_CARD_FIELDS.forEach(({key}) => {
+    const input = document.getElementById(key);
+    if(!input) return;
+    if(opening) {
+      input.value = "0";
+      input.disabled = true;
+      input.style.background = "#eef2f7";
+      input.style.color = "#64748b";
+    } else {
+      input.disabled = false;
+      input.style.background = "";
+      input.style.color = "";
+    }
+  });
   if(!required) clearWinningCardsErrors();
 }
 const WINNING_CARD_FIELDS = [
@@ -711,7 +726,7 @@ function clearWinningCardsErrors() {
   WINNING_CARD_FIELDS.forEach(({key}) => { const e=document.getElementById("err-"+key); if(e) e.textContent=""; });
 }
 function validateWinningCardsCount() {
-  if(state.branch !== "Alphaland" || state.openClosing !== "Closing") return {valid:true,values:null,errors:{}};
+  if(state.branch !== "Alphaland" || state.openClosing !== "Closing" || !isOtherSelected("scratch")) return {valid:true,values:null,errors:{}};
   clearWinningCardsErrors();
   const values={}, errors={};
   WINNING_CARD_FIELDS.forEach(({key}) => {
