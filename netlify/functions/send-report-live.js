@@ -150,13 +150,22 @@ function buildCashCountRows(message, branch) {
     if (/Bank Balances/i.test(line)) { section = "bank"; continue; }
     if (/Receivables\s+—\s+Owed to PSulit/i.test(line)) { section = "receivable"; continue; }
     if (/Payables\s+—\s+Owed by PSulit/i.test(line)) { section = "payable"; continue; }
-    if (/SCRATCH IT\s+—\s+PHYSICAL COUNT/i.test(line)) { section = "scratchPhysical"; continue; }
+    // The form writes "SCRATCH INVENTORY"; older reports used "SCRATCH IT — PHYSICAL COUNT".
+    if (/SCRATCH INVENTORY|SCRATCH IT\s+—\s+PHYSICAL COUNT/i.test(line)) { section = "scratchPhysical"; continue; }
+    if (/SCRATCH IT\s+—\s+WINNING CARDS COUNT/i.test(line)) { section = "scratchWinning"; continue; }
     if (/^[─-]{5,}$/.test(line)) { section = ""; continue; }
     if (section === "bank" || section === "receivable" || section === "payable") {
       const entry = parseNamedBalanceLine(line);
       if (!entry || entry.amount === null) continue;
       const category = section === "bank" ? "Bank Balance" : section === "receivable" ? "Receivable" : "Payable";
       addRow(`${slug(category)}-${slug(entry.name)}-${entry.currency}`, { category, currency: entry.currency, fundAccount: entry.name, amount: entry.amount, phpEquivalent: entry.currency === "PHP" ? entry.amount : "", quantityUnits: "", notes: entry.reason });
+      continue;
+    }
+    if (section === "scratchWinning") {
+      // Winning cards presented today, per game — compared by the audit with the Scratch live sheet's payouts.
+      const win = line.match(/^(Go Banana|Red Hot 7|Go For Gold):\s*(\d+)\s*cards?/i);
+      if (!win) continue;
+      addRow(`SCRATCH-WINNING-CARDS-${slug(win[1])}`, { category: "Scratch Winning Cards", currency: "", fundAccount: win[1], amount: "", phpEquivalent: "", quantityUnits: Number(win[2]), notes: "winning cards presented today" });
       continue;
     }
     if (section === "scratchPhysical") {
