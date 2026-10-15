@@ -70,7 +70,7 @@ function parseReport(message) {
     if (normalized === "BANK BALANCES") { getSection("BANK BALANCES"); continue; }
     if (normalized.includes("RECEIVABLES") && normalized.includes("OWED TO PSULIT")) { getSection("RECEIVABLES"); continue; }
     if (normalized.includes("PAYABLES") && normalized.includes("OWED BY PSULIT")) { getSection("PAYABLES"); continue; }
-    if (normalized.includes("SCRATCH IT") && normalized.includes("PHYSICAL COUNT")) { getSection("REMAINING SCRATCH CARDS"); continue; }
+    if (normalized.includes("SCRATCH INVENTORY") || (normalized.includes("SCRATCH IT") && normalized.includes("PHYSICAL COUNT"))) { getSection("REMAINING SCRATCH CARDS"); continue; }
     if (normalized.includes("SCRATCH IT") && normalized.includes("WINNING CARDS COUNT")) { getSection("WINNING CARDS PRESENTED TODAY"); continue; }
 
     const fx = rawLine.match(/^(?:[^A-Z0-9]*)([A-Z]{3}):\s*(.+)$/);
