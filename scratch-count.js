@@ -42,7 +42,7 @@
     if (!isRequired(branch, scratchSelected) || !values) return "";
     const mark = bold ? "*" : "";
     return [
-      `🎟️ ${mark}SCRATCH IT — PHYSICAL COUNT${mark}`,
+      `🎟️ ${mark}SCRATCH INVENTORY${mark}`,
       ...PRODUCTS.map(({ key, label }) => `${label}: ${values[key]} pcs`),
     ].join("\n");
   }
