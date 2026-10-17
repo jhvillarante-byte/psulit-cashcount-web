@@ -1,12 +1,12 @@
-// Fetch both open ledgers via the individual read-only Apps Script actions.
-// The Audit Reader supports openReceivables and openPayables. The invented combined
-// action "openRecPayables" falls through to date-range validation and causes an invalid-date error.
+// Combined open receivables + payables fetch. The read-only Apps Script reader
+// supports the fast action "openRecPayables", which scans the branch cash log once
+// and calculates both balances from the same sheet snapshot.
 const { verifyToken, json, requirePost, parseBody } = require("./_auth");
 
 const BRANCHES = ["Alphaland", "Solaire"];
 
-async function askBridge(readerUrl, secret, branch, action) {
-  const url = readerUrl + "?action=" + encodeURIComponent(action) +
+async function askBridge(readerUrl, secret, branch) {
+  const url = readerUrl + "?action=openRecPayables" +
     "&branch=" + encodeURIComponent(branch) + "&secret=" + encodeURIComponent(secret);
   const response = await fetch(url);
   const text = await response.text();
@@ -37,10 +37,6 @@ function normalizePayables(items) {
   return Array.from(normalized.values()).sort((a, b) => a.name.localeCompare(b.name));
 }
 
-function bridgeError(label, result, response) {
-  return label + ": " + String((result && result.error) || ("Live-sheet bridge failed (" + response.status + ")."));
-}
-
 exports.handler = async (event) => {
   const wrongMethod = requirePost(event);
   if (wrongMethod) return wrongMethod;
@@ -62,28 +58,23 @@ exports.handler = async (event) => {
   if (!readerUrl || !secret) return json(503, { ok: false, error: "The Audit Reader is not configured (AUDIT_READER_URL / AUDIT_READER_SECRET)." });
 
   try {
-    const results = await Promise.all([
-      askBridge(readerUrl, secret, branch, "openReceivables"),
-      askBridge(readerUrl, secret, branch, "openPayables"),
-    ]);
-    const rec = results[0];
-    const pay = results[1];
-
-    if (!rec.response.ok || !rec.result || rec.result.ok !== true) {
-      return json(502, { ok: false, error: bridgeError("Receivables reader", rec.result, rec.response) });
+    const { response, result } = await askBridge(readerUrl, secret, branch);
+    if (response.ok && result && result.ok === true) {
+      return json(200, {
+        ok: true,
+        branch,
+        receivables: Array.isArray(result.receivables) ? result.receivables : [],
+        receivableIssues: Array.isArray(result.receivableIssues) ? result.receivableIssues : [],
+        payables: normalizePayables(result.payables),
+        payableIssues: Array.isArray(result.payableIssues) ? result.payableIssues : [],
+        rowsRead: Number(result.rowsRead || 0),
+      });
     }
-    if (!pay.response.ok || !pay.result || pay.result.ok !== true) {
-      return json(502, { ok: false, error: bridgeError("Payables reader", pay.result, pay.response) });
-    }
-
-    return json(200, {
-      ok: true,
-      branch,
-      receivables: Array.isArray(rec.result.receivables) ? rec.result.receivables : [],
-      receivableIssues: Array.isArray(rec.result.issues) ? rec.result.issues : Array.isArray(rec.result.receivableIssues) ? rec.result.receivableIssues : [],
-      payables: normalizePayables(pay.result.payables),
-      payableIssues: Array.isArray(pay.result.issues) ? pay.result.issues : Array.isArray(pay.result.payableIssues) ? pay.result.payableIssues : [],
-      rowsRead: Math.max(Number(rec.result.rowsRead || 0), Number(pay.result.rowsRead || 0)),
+    const detail = String((result && result.error) || ("Live-sheet bridge failed (" + response.status + ")."));
+    return json(502, {
+      ok: false,
+      error: detail,
+      diagnostic: "The Apps Script /exec deployment must recognize action=openRecPayables. Publish the combined Audit Reader as a new Web App version.",
     });
   } catch (error) {
     return json(502, { ok: false, error: error instanceof Error ? error.message : String(error) });
