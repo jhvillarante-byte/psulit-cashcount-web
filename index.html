@@ -601,7 +601,7 @@ function goTo(n) {
   });
   if(n===5) buildSummary();
   if(n===6) loadStep('bank');
-  if(n===7) { loadStep('receivables'); loadStep('payables'); }
+  if(n===7) loadAutoRecPayables();
   window.scrollTo(0,0);
 }
 
@@ -1392,111 +1392,98 @@ function addAutoReceivable(entry) {
   document.getElementById('receivables-list').appendChild(div.firstElementChild);
 }
 
-async function loadAutoReceivables() {
+let recPayLoadPromise = null;
+
+// Retrieve both ledgers in one request. The Audit Reader reads the same branch cash
+// log once and computes both balances from the same snapshot.
+async function loadAutoRecPayables(force = false) {
   const branch = state.branch;
-  const list = document.getElementById('receivables-list');
-  if(!branch || !list) return;
-  if(recAuto.loading) return;
-  if(recAuto.ok && recAuto.branch === branch && list.querySelector('[data-auto="1"]')) return;   // already loaded for this branch
+  const recList = document.getElementById('receivables-list');
+  const payList = document.getElementById('payables-list');
+  if (!branch || !recList || !payList) return;
+  if (recPayLoadPromise) return recPayLoadPromise;
+  if (!force && recAuto.ok && payAuto.ok &&
+      recAuto.branch === branch && payAuto.branch === branch) return;
+
   recAuto.loading = true;
-  setRecStatus('loading');
-  try {
-    const res = await fetch(`${BACKEND}/open-receivables`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.sessionToken}` },
-      body: JSON.stringify({ branch })
-    });
-    let data = {};
-    try { data = await res.json(); } catch(e) {}
-    if(!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    list.innerHTML = '';
-    recCount = 0;
-    (data.receivables || []).forEach(addAutoReceivable);
-    recAuto.ok = true; recAuto.branch = branch; recAuto.issues = data.issues || [];
-    setRecStatus('ok', data);
-  } catch(e) {
-    recAuto.ok = false;
-    recAuto.branch = '';
-    list.innerHTML = '';
-    recCount = 0;
-    setRecStatus('failed', e && e.message ? e.message : '');
-  } finally {
-    recAuto.loading = false;
-  }
-}
-
-const payAuto = { ok: false, loading: false, branch: '', issues: [] };
-
-function setPayStatus(kind, info) {
-  const box = document.getElementById('payables-status');
-  if(!box) return;
-  if(kind === 'loading') {
-    box.innerHTML = '<div style="color:#64748b;">⏳ Loading payables from the cash log…</div>';
-  } else if(kind === 'ok') {
-    const issues = ((info && info.issues) || []).map(t => `<div style="margin-top:4px;color:#92400e;background:#fef9ec;border-radius:6px;padding:4px 8px;">⚠️ ${recEsc(t)}</div>`).join('');
-    box.innerHTML = `<div style="color:#15803d;background:#f0fdf4;border-radius:6px;padding:6px 10px;">✅ Automatic — from the Expense &amp; Cash Movement log. A payable disappears once its settlement is recorded there.</div>${issues}`;
-  } else {
-    box.innerHTML = `<div style="color:#92400e;background:#fef9ec;border-radius:6px;padding:6px 10px;">⚠️ Could not load payables from the live cash log${info ? ' (' + recEsc(info) + ')' : ''}. Manual entry is disabled. Please retry.</div><button type="button" onclick="retryAutoPayables()" style="margin-top:8px;background:#1e3a5f;color:#fff;border:0;border-radius:7px;padding:8px 12px;font-weight:700;cursor:pointer;">Retry loading</button>`;
-  }
-}
-
-function addAutoPayable(entry) {
-  const id = `payables-${++payCount}`;
-  const div = document.createElement('div');
-  div.innerHTML = makeAutoEntryHTML(id, entry);
-  document.getElementById('payables-list').appendChild(div.firstElementChild);
-}
-
-async function loadAutoPayables() {
-  const branch = state.branch;
-  const list = document.getElementById('payables-list');
-  if(!branch || !list || payAuto.loading) return;
-  if(payAuto.ok && payAuto.branch === branch && list.querySelector('[data-auto="1"]')) return;
   payAuto.loading = true;
+  setRecStatus('loading');
   setPayStatus('loading');
-  try {
-    const res = await fetch(`${BACKEND}/open-payables`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.sessionToken}` },
-      body: JSON.stringify({ branch })
-    });
-    let data = {};
-    try { data = await res.json(); } catch(e) {}
-    if(!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
-    list.innerHTML = '';
-    payCount = 0;
-    (data.payables || []).forEach(addAutoPayable);
-    payAuto.ok = true; payAuto.branch = branch; payAuto.issues = data.issues || [];
-    setPayStatus('ok', data);
-  } catch(e) {
-    payAuto.ok = false;
-    payAuto.branch = '';
-    list.innerHTML = '';
-    payCount = 0;
-    setPayStatus('failed', e && e.message ? e.message : '');
-  } finally {
-    payAuto.loading = false;
-  }
+
+  recPayLoadPromise = (async () => {
+    try {
+      const res = await fetch(`${BACKEND}/open-rec-payables`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.sessionToken}` },
+        body: JSON.stringify({ branch })
+      });
+      let data = {};
+      try { data = await res.json(); } catch(e) {}
+      if (!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+
+      recList.innerHTML = '';
+      payList.innerHTML = '';
+      recCount = 0;
+      payCount = 0;
+      (data.receivables || []).forEach(addAutoReceivable);
+      (data.payables || []).forEach(addAutoPayable);
+
+      recAuto.ok = true;
+      recAuto.branch = branch;
+      recAuto.issues = data.receivableIssues || [];
+      payAuto.ok = true;
+      payAuto.branch = branch;
+      payAuto.issues = data.payableIssues || [];
+      setRecStatus('ok', { issues: recAuto.issues });
+      setPayStatus('ok', { issues: payAuto.issues });
+    } catch(e) {
+      recAuto.ok = false;
+      recAuto.branch = '';
+      recAuto.issues = [];
+      payAuto.ok = false;
+      payAuto.branch = '';
+      payAuto.issues = [];
+      recList.innerHTML = '';
+      payList.innerHTML = '';
+      recCount = 0;
+      payCount = 0;
+      const info = e && e.message ? e.message : '';
+      setRecStatus('failed', info);
+      setPayStatus('failed', info);
+    } finally {
+      recAuto.loading = false;
+      payAuto.loading = false;
+      recPayLoadPromise = null;
+    }
+  })();
+  return recPayLoadPromise;
 }
+
+// Compatibility wrappers used by the existing step and retry controls.
+async function loadAutoReceivables() { return loadAutoRecPayables(); }
+async function loadAutoPayables() { return loadAutoRecPayables(); }
 
 function retryAutoPayables() {
-  if(payAuto.loading) return;
+  if(recPayLoadPromise || recAuto.loading || payAuto.loading) return;
+  recAuto.ok = false;
+  recAuto.branch = '';
   payAuto.ok = false;
   payAuto.branch = '';
-  loadAutoPayables();
+  loadAutoRecPayables(true);
 }
 
 function loadStep(type) {
-  if(type === 'receivables') return loadAutoReceivables();
-  if(type === 'payables') return loadAutoPayables();
+  if(type === 'receivables' || type === 'payables') return loadAutoRecPayables();
   return loadStepManual(type);
 }
 
 function retryAutoReceivables() {
-  if(recAuto.loading) return;
+  if(recPayLoadPromise || recAuto.loading || payAuto.loading) return;
   recAuto.ok = false;
   recAuto.branch = '';
-  loadAutoReceivables();
+  payAuto.ok = false;
+  payAuto.branch = '';
+  loadAutoRecPayables(true);
 }
 
 function continueFromReceivables() {
