@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Send Corrected Cash Count Image</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:24px;background:#eef3f8;color:#1e293b;font-family:Inter,system-ui,-apple-system,sans-serif}.card{max-width:620px;margin:30px auto;background:white;border-radius:18px;padding:26px;box-shadow:0 8px 28px #0f172a14}h1{font-size:23px;margin:0 0 8px;color:#12304f}p{line-height:1.5;color:#475569}.note{margin:18px 0;padding:13px;border-radius:10px;background:#eff6ff;border:1px solid #bfdbfe;font-size:14px}.field{margin:18px 0}label{display:block;font-size:12px;font-weight:800;letter-spacing:.4px;text-transform:uppercase;margin-bottom:8px}input{width:100%;padding:12px;border:1px solid #cbd5e1;border-radius:9px;font-size:16px}button{width:100%;padding:14px;border:0;border-radius:10px;background:#12304f;color:white;font-weight:800;font-size:15px;cursor:pointer;margin-top:8px}button:disabled{opacity:.55;cursor:wait}.preview{display:none;width:100%;max-height:60vh;object-fit:contain;margin-top:16px;border-radius:12px;border:1px solid #dbe3ec}.status{display:none;margin-top:16px;padding:12px;border-radius:10px;white-space:pre-wrap}.ok{display:block;background:#dcfce7;border:1px solid #86efac;color:#166534}.err{display:block;background:#fef2f2;border:1px solid #fca5a5;color:#991b1b}.back{display:inline-block;margin-top:18px;color:#1d4ed8;text-decoration:none;font-weight:700}
+</style>
+</head>
+<body>
+<div class="card">
+<h1>Send Corrected Cash Count Image</h1>
+<p>Angelica Besid · Solaire · Night Closing · Ref PSC-MURG045X-6356</p>
+<div class="note"><strong>Telegram destination:</strong> Solaire Cash Count topic.<br>This sends the selected image only. It does not add or edit any cash count records or Google Sheets rows. Use the corrected image with the duplicate GBP row removed.</div>
+<div class="field"><label for="pin">Owner PIN</label><input id="pin" type="password" inputmode="numeric" maxlength="4" placeholder="Enter 4-digit owner PIN" autocomplete="current-password"></div>
+<div class="field"><label for="image">Corrected report image (PNG or JPG)</label><input id="image" type="file" accept="image/png,image/jpeg" required></div>
+<img id="preview" class="preview" alt="Selected report preview">
+<button id="send" onclick="sendImage()">Send image to Solaire Telegram</button>
+<div id="status" class="status" role="status"></div>
+<a class="back" href="/">← Back to PSulit Cash Count</a>
+</div>
+<script>
+const fileInput=document.getElementById('image');
+const preview=document.getElementById('preview');
+const statusBox=document.getElementById('status');
+fileInput.addEventListener('change',()=>{
+  const file=fileInput.files&&fileInput.files[0];
+  preview.style.display='none';
+  if(!file)return;
+  if(!['image/png','image/jpeg'].includes(file.type)){show('err','Choose a PNG or JPG image.');fileInput.value='';return;}
+  if(file.size>2*1024*1024){show('err','Image must be smaller than 2 MB.');fileInput.value='';return;}
+  preview.src=URL.createObjectURL(file);preview.style.display='block';show('','');
+});
+function show(kind,message){statusBox.className='status'+(kind?' '+kind:'');statusBox.textContent=message;}
+async function sendImage(){
+  const btn=document.getElementById('send');
+  const pin=document.getElementById('pin').value.trim();
+  const file=fileInput.files&&fileInput.files[0];
+  show('','');
+  if(!/^\d{4}$/.test(pin)){show('err','Enter your 4-digit owner PIN.');return;}
+  if(!file){show('err','Choose Angelica’s corrected report image first.');return;}
+  btn.disabled=true;btn.textContent='Sending to Telegram…';
+  try{
+    const login=await fetch('/auth/session',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({pin})});
+    const auth=await login.json();
+    if(!login.ok||!auth.ok)throw new Error(auth.error||'Owner login failed.');
+    const imageBase64=await new Promise((resolve,reject)=>{
+      const reader=new FileReader();reader.onload=()=>resolve(String(reader.result||''));reader.onerror=()=>reject(new Error('Could not read image.'));reader.readAsDataURL(file);
+    });
+    const response=await fetch('/send-corrected-image',{method:'POST',headers:{'Content-Type':'application/json','Authorization':'Bearer '+auth.token},body:JSON.stringify({imageBase64})});
+    const result=await response.json();
+    if(!response.ok||!result.ok)throw new Error(result.error||'Telegram send failed.');
+    show('ok','Telegram accepted the image. Message ID: '+result.telegram_message_id+'\nDestination: Solaire Cash Count topic.\nGoogle Sheets changed: No.');
+    btn.textContent='Sent ✓';
+    return;
+  }catch(e){show('err',e.message||'Could not send the image.');}
+  btn.disabled=false;btn.textContent='Send image to Solaire Telegram';
+}
+</script>
+</body>
+</html>
