@@ -35,10 +35,32 @@ exports.handler = async (event) => {
   try {
     const { response, result } = await askBridge(readerUrl, secret, branch);
     if (response.ok && result && result.ok === true) {
+      // Cash Count display rule: Hive, MB, Moneybees and MB Hive are one account.
+      // Normalize aliases here so the Cash Count UI never splits one payable into duplicates.
+      const sourcePayables = Array.isArray(result.payables) ? result.payables : [];
+      const normalized = new Map();
+      const canonicalParty = (value) => {
+        const key = String(value || "").trim().toLowerCase().replace(/[^a-z0-9]/g, "");
+        if (["hive", "mb", "moneybees", "mbhive"].includes(key)) return "Hive";
+        return String(value || "").trim();
+      };
+      for (const item of sourcePayables) {
+        const name = canonicalParty(item && item.name);
+        if (!name) continue;
+        const key = name.toLowerCase();
+        const existing = normalized.get(key);
+        if (existing) {
+          existing.amount = Number(existing.amount || 0) + Number(item.amount || 0);
+          existing.lastActivity = [existing.lastActivity, item.lastActivity].filter(Boolean).sort().pop() || "";
+        } else {
+          normalized.set(key, { ...item, name, amount: Number(item.amount || 0) });
+        }
+      }
+      const payables = Array.from(normalized.values()).sort((a, b) => a.name.localeCompare(b.name));
       return json(200, {
         ok: true,
         branch,
-        payables: Array.isArray(result.payables) ? result.payables : [],
+        payables,
         issues: Array.isArray(result.issues) ? result.issues : [],
         rowsRead: Number(result.rowsRead || 0),
       });
