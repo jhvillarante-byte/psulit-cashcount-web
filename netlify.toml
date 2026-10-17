@@ -53,3 +53,10 @@
   to = "/.netlify/functions/open-payables"
   status = 200
   force = true
+
+
+[[redirects]]
+  from = "/open-rec-payables"
+  to = "/.netlify/functions/open-rec-payables"
+  status = 200
+  force = true
