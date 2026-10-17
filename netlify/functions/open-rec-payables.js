@@ -1,4 +1,5 @@
-// Combined open receivables + payables fetch. The read-only Apps Script reader
+// Combined open receivables + payables fetch.
+// Redeploy marker: 2026-10-18 reader URL updated in Netlify environment. The read-only Apps Script reader
 // supports the fast action "openRecPayables", which scans the branch cash log once
 // and calculates both balances from the same sheet snapshot.
 const { verifyToken, json, requirePost, parseBody } = require("./_auth");
