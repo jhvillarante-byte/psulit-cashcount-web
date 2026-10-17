@@ -6,8 +6,9 @@ const { verifyToken, json, requirePost, parseBody } = require("./_auth");
 
 const BRANCHES = ["Alphaland", "Solaire"];
 
-async function askBridge(readerUrl, secret, branch) {
-  const url = readerUrl + "?action=openRecPayables" +
+async function askBridge(readerUrl, secret, branch, action = "openRecPayables") {
+  const separator = readerUrl.includes("?") ? "&" : "?";
+  const url = readerUrl + separator + "action=" + encodeURIComponent(action) +
     "&branch=" + encodeURIComponent(branch) + "&secret=" + encodeURIComponent(secret);
   const response = await fetch(url);
   const text = await response.text();
@@ -71,12 +72,49 @@ exports.handler = async (event) => {
         rowsRead: Number(result.rowsRead || 0),
       });
     }
-    const detail = String((result && result.error) || ("Live-sheet bridge failed (" + response.status + ")."));
+
+    const combinedError = String((result && result.error) || ("Live-sheet bridge failed (" + response.status + ")."));
+    // Some deployed reader versions support the two individual actions but not the
+    // newer combined action. If the combined action falls through to date validation,
+    // retry using the documented read-only actions separately.
+    if (/invalid date|unsupported.*action|unknown action|unsupported event type/i.test(combinedError)) {
+      const [rec, pay] = await Promise.all([
+        askBridge(readerUrl, secret, branch, "openReceivables"),
+        askBridge(readerUrl, secret, branch, "openPayables"),
+      ]);
+      const recOk = rec.response.ok && rec.result && rec.result.ok === true;
+      const payOk = pay.response.ok && pay.result && pay.result.ok === true;
+      if (recOk && payOk) {
+        return json(200, {
+          ok: true,
+          branch,
+          receivables: Array.isArray(rec.result.receivables) ? rec.result.receivables : [],
+          receivableIssues: Array.isArray(rec.result.receivableIssues)
+            ? rec.result.receivableIssues
+            : (Array.isArray(rec.result.issues) ? rec.result.issues : []),
+          payables: normalizePayables(pay.result.payables),
+          payableIssues: Array.isArray(pay.result.payableIssues)
+            ? pay.result.payableIssues
+            : (Array.isArray(pay.result.issues) ? pay.result.issues : []),
+          rowsRead: Math.max(Number(rec.result.rowsRead || 0), Number(pay.result.rowsRead || 0)),
+        });
+      }
+      const recError = recOk ? "" : String((rec.result && rec.result.error) || ("HTTP " + rec.response.status));
+      const payError = payOk ? "" : String((pay.result && pay.result.error) || ("HTTP " + pay.response.status));
+      return json(502, {
+        ok: false,
+        error: "The live reader actions did not both succeed. Receivables: " +
+          (recError || "OK") + ". Payables: " + (payError || "OK") + ".",
+        diagnostic: "The Apps Script deployment must support action=openReceivables and action=openPayables.",
+      });
+    }
+
     return json(502, {
       ok: false,
-      error: detail,
-      diagnostic: "The Apps Script /exec deployment must recognize action=openRecPayables. Publish the combined Audit Reader as a new Web App version.",
+      error: combinedError,
+      diagnostic: "The Apps Script deployment must recognize action=openRecPayables or provide both individual read-only actions.",
     });
+
   } catch (error) {
     return json(502, { ok: false, error: error instanceof Error ? error.message : String(error) });
   }
