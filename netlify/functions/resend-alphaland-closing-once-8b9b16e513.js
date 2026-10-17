@@ -46,6 +46,7 @@ Secuna — ₱4,000.00
 ---------------------
 📤 Payables — Owed by PSulit
 Hive — ₱50,000.00
+Jen — ₱4,000.00
 ---------------------
 SCRATCH INVENTORY
 Go Banana: 407 pcs
@@ -92,9 +93,9 @@ exports.handler = async (event) => {
       telegram_message_id: messageId,
       branch: "Alphaland",
       reference: "PSC-MVCE3P9H-K7CW",
-      payable: { name: "Hive", amount: 50000, currency: "PHP" },
+      payables: [{ name: "Hive", amount: 50000, currency: "PHP" }, { name: "Jen", amount: 4000, currency: "PHP" }],
       cash_log_written: false,
-      note: "Image-only corrected resend. The cash log and Cash Count records were not modified.",
+      note: "Image-only corrected resend. Both outstanding payables are shown. The cash log and Cash Count records were not modified.",
     });
   } catch (error) {
     console.error("one-off Cash Count image resend failed:", error && error.message ? error.message : error);
