@@ -60,3 +60,9 @@
   to = "/.netlify/functions/open-rec-payables"
   status = 200
   force = true
+
+[[redirects]]
+  from = "/send-corrected-image"
+  to = "/.netlify/functions/send-corrected-image"
+  status = 200
+  force = true
