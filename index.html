@@ -1407,6 +1407,13 @@ function addAutoReceivable(entry) {
   document.getElementById('receivables-list').appendChild(div.firstElementChild);
 }
 
+function addAutoPayable(entry) {
+  const id = `payables-${++payCount}`;
+  const div = document.createElement('div');
+  div.innerHTML = makeAutoEntryHTML(id, entry);
+  document.getElementById('payables-list').appendChild(div.firstElementChild);
+}
+
 let recPayLoadPromise = null;
 
 // Retrieve both ledgers in one request. The Audit Reader reads the same branch cash
