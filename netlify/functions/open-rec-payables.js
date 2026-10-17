@@ -1,5 +1,5 @@
 // Combined open receivables + payables fetch.
-// Redeploy marker: 2026-10-18 reader URL and shared Audit Reader secret aligned. The read-only Apps Script reader
+// Redeploy marker: 2026-10-18 updated Apps Script reader deployment URL. The read-only Apps Script reader
 // supports the fast action "openRecPayables", which scans the branch cash log once
 // and calculates both balances from the same sheet snapshot.
 const { verifyToken, json, requirePost, parseBody } = require("./_auth");
