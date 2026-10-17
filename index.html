@@ -457,7 +457,7 @@
   <!-- STEP 7 - Receivables & Payables -->
   <div class="section" id="step-7">
     <h2>Receivables & Payables</h2>
-    <p class="section-sub">Receivables load automatically from the cash log and stay until their payment is recorded there. Payables are carried forward from the previous count — edit only if there are changes.</p>
+    <p class="section-sub">Receivables and Payables load automatically from the live cash log and stay until their payment or settlement is recorded there.</p>
 
     <!-- RECEIVABLES -->
     <div style="margin-bottom:20px;">
@@ -473,8 +473,8 @@
       <div style="font-weight:800;font-size:14px;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">
         📤 Payables — Owed by PSulit
       </div>
+      <div id="payables-status" style="font-size:12px;margin-bottom:10px;"></div>
       <div id="payables-list"></div>
-      <button onclick="addEntry('payables')" style="background:none;border:1.5px dashed #94a3b8;border-radius:9px;padding:10px 16px;color:#64748b;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-top:6px;">+ Add Payable</button>
     </div>
 
     <div class="btn-row" style="margin-top:16px">
@@ -1321,8 +1321,8 @@ function addEntry(type, entry) {
 
 
 function loadStepManual(type) {
-  // Receivables are live-sheet-only; never populate them from old local/manual balances.
-  if(type === 'receivables') return;
+  // Receivables and payables are live-sheet-only; never use stale local/manual balances.
+  if(type === 'receivables' || type === 'payables') return;
   const branch = state.branch;
   if(!branch) return;
   const listId = type === 'receivables' ? 'receivables-list' : type === 'payables' ? 'payables-list' : 'bank-list';
@@ -1425,8 +1425,70 @@ async function loadAutoReceivables() {
   }
 }
 
+const payAuto = { ok: false, loading: false, branch: '', issues: [] };
+
+function setPayStatus(kind, info) {
+  const box = document.getElementById('payables-status');
+  if(!box) return;
+  if(kind === 'loading') {
+    box.innerHTML = '<div style="color:#64748b;">⏳ Loading payables from the cash log…</div>';
+  } else if(kind === 'ok') {
+    const issues = ((info && info.issues) || []).map(t => `<div style="margin-top:4px;color:#92400e;background:#fef9ec;border-radius:6px;padding:4px 8px;">⚠️ ${recEsc(t)}</div>`).join('');
+    box.innerHTML = `<div style="color:#15803d;background:#f0fdf4;border-radius:6px;padding:6px 10px;">✅ Automatic — from the Expense &amp; Cash Movement log. A payable disappears once its settlement is recorded there.</div>${issues}`;
+  } else {
+    box.innerHTML = `<div style="color:#92400e;background:#fef9ec;border-radius:6px;padding:6px 10px;">⚠️ Could not load payables from the live cash log${info ? ' (' + recEsc(info) + ')' : ''}. Manual entry is disabled. Please retry.</div><button type="button" onclick="retryAutoPayables()" style="margin-top:8px;background:#1e3a5f;color:#fff;border:0;border-radius:7px;padding:8px 12px;font-weight:700;cursor:pointer;">Retry loading</button>`;
+  }
+}
+
+function addAutoPayable(entry) {
+  const id = `payables-${++payCount}`;
+  const div = document.createElement('div');
+  div.innerHTML = makeAutoEntryHTML(id, entry);
+  document.getElementById('payables-list').appendChild(div.firstElementChild);
+}
+
+async function loadAutoPayables() {
+  const branch = state.branch;
+  const list = document.getElementById('payables-list');
+  if(!branch || !list || payAuto.loading) return;
+  if(payAuto.ok && payAuto.branch === branch && list.querySelector('[data-auto="1"]')) return;
+  payAuto.loading = true;
+  setPayStatus('loading');
+  try {
+    const res = await fetch(`${BACKEND}/open-payables`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${state.sessionToken}` },
+      body: JSON.stringify({ branch })
+    });
+    let data = {};
+    try { data = await res.json(); } catch(e) {}
+    if(!res.ok || !data.ok) throw new Error(data.error || `HTTP ${res.status}`);
+    list.innerHTML = '';
+    payCount = 0;
+    (data.payables || []).forEach(addAutoPayable);
+    payAuto.ok = true; payAuto.branch = branch; payAuto.issues = data.issues || [];
+    setPayStatus('ok', data);
+  } catch(e) {
+    payAuto.ok = false;
+    payAuto.branch = '';
+    list.innerHTML = '';
+    payCount = 0;
+    setPayStatus('failed', e && e.message ? e.message : '');
+  } finally {
+    payAuto.loading = false;
+  }
+}
+
+function retryAutoPayables() {
+  if(payAuto.loading) return;
+  payAuto.ok = false;
+  payAuto.branch = '';
+  loadAutoPayables();
+}
+
 function loadStep(type) {
   if(type === 'receivables') return loadAutoReceivables();
+  if(type === 'payables') return loadAutoPayables();
   return loadStepManual(type);
 }
 
@@ -1438,9 +1500,13 @@ function retryAutoReceivables() {
 }
 
 function continueFromReceivables() {
-  if(recAuto.loading) { alert('Receivables are still loading from the cash log. Please wait a moment and try again.'); return; }
+  if(recAuto.loading || payAuto.loading) { alert('Receivables and payables are still loading from the cash log. Please wait a moment and try again.'); return; }
   if(!recAuto.ok || recAuto.branch !== state.branch) {
     alert('Receivables have not been loaded from the live cash log. Please retry before continuing.');
+    return;
+  }
+  if(!payAuto.ok || payAuto.branch !== state.branch) {
+    alert('Payables have not been loaded from the live cash log. Please retry before continuing.');
     return;
   }
   goTo(5);
