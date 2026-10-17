@@ -1345,6 +1345,7 @@ function loadStepManual(type) {
 // Receivables must load from the live Expense & Cash Movement log. If the live
 // source cannot be reached, block progression instead of showing stale/manual balances.
 const recAuto = { ok: false, loading: false, branch: '', issues: [] };
+const payAuto = { ok: false, loading: false, branch: '', issues: [] };
 
 function recEsc(v) {
   return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
@@ -1360,6 +1361,20 @@ function setRecStatus(kind, info) {
     box.innerHTML = `<div style="color:#15803d;background:#f0fdf4;border-radius:6px;padding:6px 10px;">✅ Automatic — from the Expense &amp; Cash Movement log. A receivable disappears once its payment is recorded there.</div>${issues}`;
   } else {
     box.innerHTML = `<div style="color:#92400e;background:#fef9ec;border-radius:6px;padding:6px 10px;">⚠️ Could not load receivables from the live cash log${info ? ' (' + recEsc(info) + ')' : ''}. Manual entry is disabled. Please retry.</div><button type="button" onclick="retryAutoReceivables()" style="margin-top:8px;background:#1e3a5f;color:#fff;border:0;border-radius:7px;padding:8px 12px;font-weight:700;cursor:pointer;">Retry loading</button>`;
+  }
+}
+
+
+function setPayStatus(kind, info) {
+  const box = document.getElementById('payables-status');
+  if(!box) return;
+  if(kind === 'loading') {
+    box.innerHTML = '<div style="color:#64748b;">⏳ Loading payables from the cash log…</div>';
+  } else if(kind === 'ok') {
+    const issues = ((info && info.issues) || []).map(t => `<div style="margin-top:4px;color:#92400e;background:#fef9ec;border-radius:6px;padding:4px 8px;">⚠️ ${recEsc(t)}</div>`).join('');
+    box.innerHTML = `<div style="color:#15803d;background:#f0fdf4;border-radius:6px;padding:6px 10px;">✅ Automatic — from the Expense &amp; Cash Movement log. A payable disappears once its payment or settlement is recorded there.</div>${issues}`;
+  } else {
+    box.innerHTML = `<div style="color:#92400e;background:#fef9ec;border-radius:6px;padding:6px 10px;">⚠️ Could not load payables from the live cash log${info ? ' (' + recEsc(info) + ')' : ''}. Manual entry is disabled. Please retry.</div><button type="button" onclick="retryAutoPayables()" style="margin-top:8px;background:#1e3a5f;color:#fff;border:0;border-radius:7px;padding:8px 12px;font-weight:700;cursor:pointer;">Retry loading</button>`;
   }
 }
 
