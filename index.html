@@ -1449,7 +1449,9 @@ async function loadAutoRecPayables(force = false) {
       payList.innerHTML = '';
       recCount = 0;
       payCount = 0;
-      (data.receivables || []).forEach(addAutoReceivable);
+      // Hidden from the Cash Count: 8V / 8Ventures (any spelling).
+      const hideReceivable = (r) => /^8v/.test(String((r && r.name) || '').toLowerCase().replace(/[^a-z0-9]/g, ''));
+      (data.receivables || []).filter(r => !hideReceivable(r)).forEach(addAutoReceivable);
       (data.payables || []).forEach(addAutoPayable);
 
       recAuto.ok = true;
