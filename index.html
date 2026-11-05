@@ -1959,13 +1959,10 @@ ${line}
 `;
   }
   if(isOtherSelected("hive")) {
-    const hiveLines = getHiveReportLines();
-    if(hiveLines.length) {
-      msg += `${line}
-🐝 HIVE — CURRENCY BREAKDOWN
-`;
-      hiveLines.forEach(({cur,total}) => msg += `${cur.flag} ${cur.code}: ${fmt(cur.code,total)}
-`);
+    const hiveCur = CURRENCIES.find(c => c.code === hiveCurrency);
+    const hiveTotal = getHiveCurrencyTotal(hiveCurrency);
+    if(hiveCur && hiveTotal > 0) {
+      msg += `${line}\n🐝 HIVE: ${hiveCur.flag} ${hiveCur.code} — ${fmt(hiveCur.code,hiveTotal)}\n`;
     }
   }
 
