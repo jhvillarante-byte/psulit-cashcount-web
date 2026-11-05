@@ -310,21 +310,15 @@
       </div>
       <div class="tab-row" id="other-tab-row" style="display:none"></div>
       <div id="other-section-hive" class="denom-section">
-        <div class="denom-table">
-          <div class="denom-header"><span><span style="font-size:16px;margin-right:4px;">🐝</span>Hive (PHP)</span><span>Qty (pcs)</span><span>Subtotal</span></div>
-          <div class="denom-row"><span class="denom-label">₱1,000</span><input class="denom-input" type="number" min="0" placeholder="0" id="other-hive-1000" oninput="calcOtherTotal('hive')"><span class="denom-sub" id="other-hive-sub-1000">—</span></div>
-<div class="denom-row"><span class="denom-label">₱500</span><input class="denom-input" type="number" min="0" placeholder="0" id="other-hive-500" oninput="calcOtherTotal('hive')"><span class="denom-sub" id="other-hive-sub-500">—</span></div>
-<div class="denom-row"><span class="denom-label">₱200</span><input class="denom-input" type="number" min="0" placeholder="0" id="other-hive-200" oninput="calcOtherTotal('hive')"><span class="denom-sub" id="other-hive-sub-200">—</span></div>
-<div class="denom-row"><span class="denom-label">₱100</span><input class="denom-input" type="number" min="0" placeholder="0" id="other-hive-100" oninput="calcOtherTotal('hive')"><span class="denom-sub" id="other-hive-sub-100">—</span></div>
-<div class="denom-row"><span class="denom-label">₱50</span><input class="denom-input" type="number" min="0" placeholder="0" id="other-hive-50" oninput="calcOtherTotal('hive')"><span class="denom-sub" id="other-hive-sub-50">—</span></div>
-<div class="denom-row"><span class="denom-label">₱20</span><input class="denom-input" type="number" min="0" placeholder="0" id="other-hive-20" oninput="calcOtherTotal('hive')"><span class="denom-sub" id="other-hive-sub-20">—</span></div>
-<div class="denom-row"><span class="denom-label">₱10</span><input class="denom-input" type="number" min="0" placeholder="0" id="other-hive-10" oninput="calcOtherTotal('hive')"><span class="denom-sub" id="other-hive-sub-10">—</span></div>
-<div class="denom-row"><span class="denom-label">₱5</span><input class="denom-input" type="number" min="0" placeholder="0" id="other-hive-5" oninput="calcOtherTotal('hive')"><span class="denom-sub" id="other-hive-sub-5">—</span></div>
-<div class="denom-row"><span class="denom-label">₱1</span><input class="denom-input" type="number" min="0" placeholder="0" id="other-hive-1" oninput="calcOtherTotal('hive')"><span class="denom-sub" id="other-hive-sub-1">—</span></div>
-<div class="denom-row"><span class="denom-label">25¢</span><input class="denom-input" type="number" min="0" placeholder="0" id="other-hive-0_25" oninput="calcOtherTotal('hive')"><span class="denom-sub" id="other-hive-sub-0_25">—</span></div>
-<div class="denom-row"><span class="denom-label">10¢</span><input class="denom-input" type="number" min="0" placeholder="0" id="other-hive-0_1" oninput="calcOtherTotal('hive')"><span class="denom-sub" id="other-hive-sub-0_1">—</span></div>
-<div class="denom-row"><span class="denom-label">5¢</span><input class="denom-input" type="number" min="0" placeholder="0" id="other-hive-0_05" oninput="calcOtherTotal('hive')"><span class="denom-sub" id="other-hive-sub-0_05">—</span></div>
-<div class="denom-row"><span class="denom-label">1¢</span><input class="denom-input" type="number" min="0" placeholder="0" id="other-hive-0_01" oninput="calcOtherTotal('hive')"><span class="denom-sub" id="other-hive-sub-0_01">—</span></div>
+        <div class="field-group" style="margin-bottom:12px;">
+          <label class="field-label" for="hive-currency-select">Hive Currency</label>
+          <select id="hive-currency-select" onchange="changeHiveCurrency(this.value)" style="width:100%;padding:11px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:15px;background:#fff;color:#1e3a5f;font-weight:700;">
+            <option value="PHP">🇵🇭 PHP — Philippine Peso</option>
+          </select>
+        </div>
+        <div class="denom-table" id="hive-denom-table">
+          <div class="denom-header"><span>🐝 HIVE (PHP)</span><span>QTY (PCS)</span><span>SUBTOTAL</span></div>
+          <div id="hive-denom-rows"></div>
           <div class="denom-total"><span>TOTAL HIVE</span><span></span><span class="total-amt" id="other-hive-total">₱0.00</span></div>
         </div>
       </div>
@@ -674,7 +668,7 @@ function goStep3() {
   let ok=true;
   if(!state.cctvCam){ document.getElementById("err-cctv").textContent="Select CCTV camera used"; ok=false; } else document.getElementById("err-cctv").textContent="";
   if(!document.getElementById("cctv-confirm").checked){ document.getElementById("err-cctv-confirm").textContent="You must confirm cash was counted in front of CCTV"; ok=false; } else document.getElementById("err-cctv-confirm").textContent="";
-  if(ok){ buildCurrencyGrid(); goTo(4); refreshOthersByBranch(); refreshScratchByBranch(); loadLottomatikCarryForward(); }
+  if(ok){ buildCurrencyGrid(); initHiveCurrencyDropdown(); goTo(4); refreshOthersByBranch(); refreshScratchByBranch(); loadLottomatikCarryForward(); }
 }
 
 function isOtherSelected(itemId) {
@@ -966,6 +960,68 @@ const OTHER_ITEMS_BY_BRANCH = { Solaire: ["hive"], Alphaland: ["hive","juanpay",
 const ALL_OTHER_ITEMS = ["hive","juanpay","scratch","lottomatik"];
 const PHP_DENOM_VALS = [1000,500,200,100,50,20,10,5,1,0.25,0.1,0.05,0.01];
 
+// Hive keeps an independent denomination count for each of PSulit's 25 currencies.
+let hiveCurrency = "PHP";
+const hiveCounts = Object.fromEntries(CURRENCIES.map(c => [c.code, {}]));
+function hiveDenomKey(v) { return String(v).replace(".", "_"); }
+function saveHiveCurrencyInputs() {
+  const cur = CURRENCIES.find(c => c.code === hiveCurrency);
+  if(!cur) return;
+  cur.denoms.forEach(d => {
+    const input = document.getElementById("hive-qty-" + hiveDenomKey(d.v));
+    if(input) hiveCounts[hiveCurrency][hiveDenomKey(d.v)] = Math.max(0, parseInt(input.value || "0", 10) || 0);
+  });
+}
+function renderHiveCurrency() {
+  const cur = CURRENCIES.find(c => c.code === hiveCurrency);
+  if(!cur) return;
+  const select = document.getElementById("hive-currency-select");
+  if(select && select.value !== hiveCurrency) select.value = hiveCurrency;
+  const rows = document.getElementById("hive-denom-rows");
+  const header = document.querySelector("#hive-denom-table .denom-header");
+  if(header) header.innerHTML = `<span>🐝 HIVE (${cur.code})</span><span>QTY (PCS)</span><span>SUBTOTAL</span>`;
+  if(!rows) return;
+  rows.innerHTML = cur.denoms.map(d => {
+    const key = hiveDenomKey(d.v);
+    const qty = hiveCounts[hiveCurrency][key] || 0;
+    return `<div class="denom-row"><span class="denom-label">${d.l}</span><input class="denom-input" type="number" min="0" step="1" placeholder="0" id="hive-qty-${key}" value="${qty || ""}" oninput="calcHiveTotal()"><span class="denom-sub" id="hive-sub-${key}">—</span></div>`;
+  }).join("");
+  calcHiveTotal();
+}
+function changeHiveCurrency(code) {
+  saveHiveCurrencyInputs();
+  if(CURRENCIES.some(c => c.code === code)) hiveCurrency = code;
+  renderHiveCurrency();
+}
+function getHiveCurrencyTotal(code) {
+  const cur = CURRENCIES.find(c => c.code === code);
+  if(!cur) return 0;
+  if(code === hiveCurrency) saveHiveCurrencyInputs();
+  return Math.round(cur.denoms.reduce((sum,d) => sum + (Number(hiveCounts[code][hiveDenomKey(d.v)]) || 0) * d.v, 0) * 100) / 100;
+}
+function calcHiveTotal() {
+  saveHiveCurrencyInputs();
+  const cur = CURRENCIES.find(c => c.code === hiveCurrency);
+  if(!cur) return;
+  let total = 0;
+  cur.denoms.forEach(d => {
+    const key = hiveDenomKey(d.v);
+    const qty = Number(hiveCounts[hiveCurrency][key]) || 0;
+    const sub = qty * d.v;
+    total += sub;
+    const subEl = document.getElementById("hive-sub-" + key);
+    if(subEl) subEl.textContent = sub > 0 ? "= " + fmt(hiveCurrency, sub) : "—";
+  });
+  const totalEl = document.getElementById("other-hive-total");
+  if(totalEl) totalEl.textContent = fmt(hiveCurrency, total);
+  const tabTotal = document.getElementById("other-tabtotal-hive");
+  if(tabTotal) tabTotal.textContent = total > 0 ? fmt(hiveCurrency, total) : "";
+}
+function getHiveReportLines(includeZero = false) {
+  saveHiveCurrencyInputs();
+  return CURRENCIES.map(cur => ({cur,total:getHiveCurrencyTotal(cur.code)})).filter(x => includeZero || x.total > 0);
+}
+
 function calcOtherTotal(itemId) {
   let total = 0;
   PHP_DENOM_VALS.forEach(v => {
@@ -981,6 +1037,7 @@ function calcOtherTotal(itemId) {
 }
 
 function getOtherTotal(itemId) {
+  if(itemId === "hive") return getHiveCurrencyTotal("PHP");
   let total = 0;
   PHP_DENOM_VALS.forEach(v => {
     const qty = parseFloat(document.getElementById("other-"+itemId+"-"+String(v).replace(".","_"))?.value||0);
@@ -1614,6 +1671,15 @@ function switchMainTab(tab) {
 }
 
 
+function initHiveCurrencyDropdown() {
+  const select = document.getElementById("hive-currency-select");
+  if(!select || select.dataset.ready === "1") return;
+  select.innerHTML = CURRENCIES.map(c => `<option value="${c.code}">${c.flag} ${c.code} — ${c.name}</option>`).join("");
+  select.value = "PHP";
+  select.dataset.ready = "1";
+  renderHiveCurrency();
+}
+
 function buildCurrencyGrid() {
   const grid = document.getElementById("cur-grid");
   if(grid.children.length>0) return;
@@ -1750,12 +1816,19 @@ function buildSummary() {
   // Others totals
   const OTHERS_LABELS_SUMMARY = {hive:"🐝 Hive", juanpay:"📱 JuanPay", scratch:"🎫 Scratch"};
   const oth = getOthers();
-  const othKeys = Object.keys(oth).filter(k => oth[k] > 0);
+  const othKeys = Object.keys(oth).filter(k => k !== "hive" && oth[k] > 0);
   if(othKeys.length > 0) {
     cs.innerHTML += `<div class="cur-summary-title" style="margin-top:10px">Others Total Declared</div>`;
     othKeys.forEach(k => {
       cs.innerHTML += `<div class="cur-summary-row"><span>${OTHERS_LABELS_SUMMARY[k]}</span><strong style="color:#1e3a5f;font-size:16px">₱${oth[k].toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}</strong></div>`;
     });
+  }
+  if(isOtherSelected("hive")) {
+    const hiveLines = getHiveReportLines();
+    if(hiveLines.length) {
+      cs.innerHTML += `<div class="cur-summary-title" style="margin-top:10px">🐝 Hive — Currency Balances</div>`;
+      hiveLines.forEach(({cur,total}) => cs.innerHTML += `<div class="cur-summary-row"><span>${cur.flag} ${cur.code}</span><strong style="color:#1e3a5f;font-size:16px">${fmt(cur.code,total)}</strong></div>`);
+    }
   }
 
   const scratchPhysical = getScratchPhysicalCount();
@@ -1872,7 +1945,7 @@ ${line}
   const othReportValues = {...oth};
   if(lottomatikCashTotal > 0) othReportValues.lottomatikCash = lottomatikCashTotal;
   if(lottomatikWallet !== null) othReportValues.lottomatikWallet = lottomatikWallet;
-  const othKeys = Object.keys(othReportValues).filter(k => othReportValues[k] > 0);
+  const othKeys = Object.keys(othReportValues).filter(k => k !== "hive" && othReportValues[k] > 0);
   const telegramLottomatikThermalRolls = !bold && state.branch === "Alphaland" && isOtherSelected("lottomatik") ? getLottomatikThermalRolls() : null;
   const showTelegramThermalRolls = !bold && state.branch === "Alphaland" && isOtherSelected("lottomatik") && telegramLottomatikThermalRolls !== null;
   if(othKeys.length > 0 || showTelegramThermalRolls) {
@@ -1884,6 +1957,16 @@ ${line}
     });
     if(showTelegramThermalRolls) msg += `LottoMatik Thermal Rolls on Hand: ${telegramLottomatikThermalRolls} rolls
 `;
+  }
+  if(isOtherSelected("hive")) {
+    const hiveLines = getHiveReportLines();
+    if(hiveLines.length) {
+      msg += `${line}
+🐝 HIVE — CURRENCY BREAKDOWN
+`;
+      hiveLines.forEach(({cur,total}) => msg += `${cur.flag} ${cur.code}: ${fmt(cur.code,total)}
+`);
+    }
   }
 
   // Bank Balances
@@ -1972,6 +2055,16 @@ ${OTHERS_LABELS[k]}
 `;
     });
   }
+  if(isOtherSelected("hive")) {
+    getHiveReportLines().forEach(({cur,total}) => {
+      msg += `\n🐝 Hive — ${cur.code} (${cur.name})\n`;
+      cur.denoms.forEach(d => {
+        const qty = Number(hiveCounts[cur.code][hiveDenomKey(d.v)]) || 0;
+        if(qty > 0) msg += `  ${d.l} × ${qty} = ${fmt(cur.code, qty*d.v)}\n`;
+      });
+      msg += `  *Subtotal: ${fmt(cur.code,total)}*\n`;
+    });
+  }
   return msg;
 }
 function buildSlackMsg() {
@@ -2021,7 +2114,7 @@ ${cur.flag} *${cur.code} — ${cur.name}*
   const othReportValues = {...oth};
   if(lottomatikCashTotal > 0) othReportValues.lottomatikCash = lottomatikCashTotal;
   if(lottomatikWallet !== null) othReportValues.lottomatikWallet = lottomatikWallet;
-  const othKeys = Object.keys(othReportValues).filter(k => othReportValues[k] > 0);
+  const othKeys = Object.keys(othReportValues).filter(k => k !== "hive" && othReportValues[k] > 0);
   if(othKeys.length > 0) {
     msg += `
 ${line}
@@ -2046,6 +2139,17 @@ ${OTHERS_LABELS_MAP[k]}
 ${line}
 ✅ *Submitted & Locked*
 ⚠️ CCTV footage for *${state.cctvCam}* on record.`;
+
+  if(isOtherSelected("hive")) {
+    getHiveReportLines().forEach(({cur,total}) => {
+      msg += `\n🐝 Hive — ${cur.code} (${cur.name})\n`;
+      cur.denoms.forEach(d => {
+        const qty = Number(hiveCounts[cur.code][hiveDenomKey(d.v)]) || 0;
+        if(qty > 0) msg += `  ${d.l} × ${qty} = ${fmt(cur.code, qty*d.v)}\n`;
+      });
+      msg += `  *Subtotal: ${fmt(cur.code,total)}*\n`;
+    });
+  }
   return msg;
 }
 
