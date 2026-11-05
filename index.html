@@ -1824,10 +1824,10 @@ function buildSummary() {
     });
   }
   if(isOtherSelected("hive")) {
-    const hiveLines = getHiveReportLines();
-    if(hiveLines.length) {
-      cs.innerHTML += `<div class="cur-summary-title" style="margin-top:10px">🐝 Hive — Currency Balances</div>`;
-      hiveLines.forEach(({cur,total}) => cs.innerHTML += `<div class="cur-summary-row"><span>${cur.flag} ${cur.code}</span><strong style="color:#1e3a5f;font-size:16px">${fmt(cur.code,total)}</strong></div>`);
+    const hiveCur = CURRENCIES.find(c => c.code === hiveCurrency);
+    const hiveTotal = getHiveCurrencyTotal(hiveCurrency);
+    if(hiveCur && hiveTotal > 0) {
+      cs.innerHTML += `<div class="cur-summary-title" style="margin-top:10px">🐝 Hive</div><div class="cur-summary-row"><span>${hiveCur.flag} ${hiveCur.code}</span><strong style="color:#1e3a5f;font-size:16px">${fmt(hiveCur.code,hiveTotal)}</strong></div>`;
     }
   }
 
