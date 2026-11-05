@@ -2036,7 +2036,7 @@ ${cur.flag} *${cur.code} — ${cur.name}*
   const OTHERS_LABELS = {hive:"🐝 Hive", juanpay:"📱 JuanPay", scratch:"🎫 Scratch"};
   const PHP_DENOMS = [{l:"₱1,000",v:1000},{l:"₱500",v:500},{l:"₱200",v:200},{l:"₱100",v:100},{l:"₱50",v:50},{l:"₱20",v:20},{l:"₱10",v:10},{l:"₱5",v:5},{l:"₱1",v:1},{l:"25¢",v:0.25},{l:"10¢",v:0.1},{l:"5¢",v:0.05},{l:"1¢",v:0.01}];
   const oth = getOthers();
-  const othKeys = Object.keys(oth).filter(k => oth[k] > 0);
+  const othKeys = Object.keys(oth).filter(k => k !== "hive" && oth[k] > 0);
   if(othKeys.length > 0) {
     msg += `
 ${line}
