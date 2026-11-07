@@ -258,7 +258,7 @@ async function syncCashCountSheet(message, branch) {
   const secrets = sheetSecrets();
   if (!webhookUrl || !secrets.length) return { status: "not_configured", error: "Cash Count live-sheet bridge is not configured." };
   const rows = buildCashCountRows(message, branch);
-  if (!rows.length || !rows.some(row => row.category === "Forex Cash")) return { status: "no_rows", error: "Cash Count report could not be converted to live-sheet rows." };
+  if (!rows.length) return { status: "no_rows", error: "Cash Count report could not be converted to live-sheet rows." };
 
   let lastError = "Live-sheet sync failed.";
   for (const secret of secrets) {
