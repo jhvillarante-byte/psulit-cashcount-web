@@ -121,13 +121,13 @@ function buildCashCountRows(message, branch) {
   // reach the live sheet, not just the currently selected currency in the header.
   let hiveCurrencySection = "";
   for (const line of lines) {
-    const hiveHeader = line.match(/^(?:🐝\\s*)?Hive\\s+—\\s+([A-Z]{3})\\s+\\([^)]*\\)\\s*$/i);
+    const hiveHeader = line.match(/^(?:🐝\s*)?Hive\s+—\s+([A-Z]{3})\s+\([^)]*\)\s*$/i);
     if (hiveHeader) {
       hiveCurrencySection = hiveHeader[1].toUpperCase();
       continue;
     }
     if (hiveCurrencySection) {
-      const hiveSubtotal = line.match(/^Subtotal:\\s*(.+)$/i);
+      const hiveSubtotal = line.match(/^Subtotal:\s*(.+)$/i);
       if (hiveSubtotal) {
         const amount = numberFrom(hiveSubtotal[1]);
         if (amount !== null) {
