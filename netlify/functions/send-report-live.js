@@ -107,7 +107,7 @@ function buildCashCountRows(message, branch) {
   // the explicit cash-on-hand amount when the report includes it.
   const scratchCashOnHand = numberFrom(firstMatch(text, /Cash on Hand:\s*₱?([\d,]+(?:\.\d+)?)/i));
   for (const line of lines) {
-    const fund = line.match(/^(?:[^A-Za-z0-9]*)(Hive|JuanPay|Scratch|LottoMatik Cash|LottoMatik Wallet):\s*₱?([\d,]+(?:\.\d+)?)/i);
+    const fund = line.match(/^(?:[^A-Za-z0-9]*)(Hive|JuanPay|Scratch|LottoMatik Cash|LottoMatik Wallet)(?:\\s*\\(PHP\\))?:\s*₱?([\d,]+(?:\.\d+)?)/i);
     if (!fund) continue;
     const meta = fundLabels[fund[1].toLowerCase()];
     let amount = numberFrom(fund[2]);
