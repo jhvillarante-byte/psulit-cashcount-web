@@ -1,0 +1,308 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#08783f">
+<title>PSulit Cash Log</title>
+<style>
+  :root { color-scheme: light; --g: #08783f; --g2: #0a5c33; --bg: #f3f6f4; --card: #fff; --ink: #142019; --mut: #5d6b63; --line: #d9e2dc; --warn: #8a5a00; --wbg: #fff5dc; --bad: #b42318; --bbg: #fdecea; --okbg: #e3f4ea; }
+  @media (prefers-color-scheme: dark) { :root { color-scheme: dark; --bg: #0f1512; --card: #18211c; --ink: #e7efe9; --mut: #9fb0a6; --line: #2b3a31; --wbg: #3a2e12; --warn: #f2c26b; --bbg: #3d1d1a; --bad: #ff8a80; --okbg: #16301f; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 16px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: var(--bg); color: var(--ink); padding: env(safe-area-inset-top) 0 calc(24px + env(safe-area-inset-bottom)); }
+  header { background: var(--g); color: #fff; padding: 12px 16px; position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; }
+  header h1 { margin: 0; font-size: 18px; flex: 1; } header a, header button { color: #fff; font-size: 13px; background: none; border: 0; font-family: inherit; text-decoration: underline; padding: 4px; }
+  main { max-width: 640px; margin: 0 auto; padding: 12px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  label { display: block; font-size: 13px; color: var(--mut); margin: 12px 0 4px; font-weight: 600; }
+  input, select, textarea { width: 100%; font: inherit; padding: 11px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--card); color: var(--ink); }
+  input:focus, select:focus { outline: 2px solid var(--g); border-color: transparent; }
+  .btn { display: block; width: 100%; padding: 14px; border: 0; border-radius: 12px; background: var(--g); color: #fff; font: 700 16px inherit; font-family: inherit; margin-top: 14px; cursor: pointer; }
+  .btn:disabled { opacity: .5; } .btn.light { background: transparent; color: var(--g); border: 1px solid var(--g); }
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tile { border: 0; border-radius: 14px; padding: 22px 12px; color: #fff; font: 700 18px inherit; font-family: inherit; cursor: pointer; text-align: center; }
+  .tile.wide { grid-column: 1 / -1; }
+  .list button { display: block; width: 100%; text-align: left; padding: 14px; margin-bottom: 8px; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); font: 600 15px inherit; font-family: inherit; cursor: pointer; }
+  .list button small { display: block; font-weight: 400; color: var(--mut); margin-top: 2px; }
+  .back-link { display: inline-flex; width: auto; align-items: center; gap: 5px; padding: 5px 0; margin: 0 0 8px; border: 0; background: transparent; color: var(--g); font: 600 13px inherit; font-family: inherit; cursor: pointer; }
+  .forex-menu button { display: flex; align-items: center; justify-content: space-between; gap: 12px; width: 100%; padding: 16px; margin: 0 0 9px; text-align: left; border: 1px solid var(--line); border-radius: 12px; background: var(--card); color: var(--ink); font: 600 15px inherit; font-family: inherit; cursor: pointer; }
+  .forex-menu button span { color: var(--mut); font-size: 13px; font-weight: 400; }
+  .forex-menu button::after { content: "›"; color: var(--g); font-size: 22px; }
+  .crumb { font-size: 13px; color: var(--mut); margin: 0 0 8px; } .crumb b { color: var(--ink); }
+  .row3 { display: grid; grid-template-columns: 92px 1fr 1fr; gap: 8px; } .row2 { display: grid; grid-template-columns: 92px 1fr; gap: 8px; }
+  .hintv { font-size: 13px; color: var(--mut); margin-top: 4px; min-height: 18px; }
+  .msg { padding: 11px 12px; border-radius: 10px; margin-top: 12px; font-size: 14px; white-space: pre-line; }
+  .msg.err { background: var(--bbg); color: var(--bad); } .msg.ok { background: var(--okbg); color: var(--g2); } .msg.warn { background: var(--wbg); color: var(--warn); }
+  @media (prefers-color-scheme: dark) { .msg.ok { color: #8fe0ad; } }
+  .opt { display: block; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-top: 6px; cursor: pointer; }
+  .opt input { width: auto; margin-right: 8px; } .opt.on { border-color: var(--g); outline: 1px solid var(--g); }
+  .opt .meta { font-size: 13px; color: var(--mut); }
+  .sum { margin: 6px 0 0; padding-left: 18px; } .sum li { margin: 3px 0; }
+  .hidden { display: none !important; } .small { font-size: 13px; color: var(--mut); }
+
+  .file-picker { display:flex; align-items:center; flex-wrap:wrap; gap:8px; margin:6px 0 12px; }
+  .file-choice { display:inline-flex; align-items:center; justify-content:center; padding:9px 13px; border:1px solid var(--g); border-radius:8px; color:var(--g); background:#fff; font-size:13px; font-weight:600; cursor:pointer; }
+  .file-choice.primary { background:var(--g); color:#fff; }
+  .file-input-hidden { position:absolute; width:1px; height:1px; opacity:0; overflow:hidden; }
+  .file-name { flex-basis:100%; font-size:12px; color:var(--mut); }
+</style>
+</head>
+<body>
+<header><h1>PSulit Cash Log</h1><button id="homeBtn" type="button" class="hidden">Home</button><a href="/classic">Classic form</a></header>
+<main>
+  <section id="pinBox" class="card">
+    <label for="pin">Employee PIN</label>
+    <input id="pin" type="password" inputmode="numeric" autocomplete="off" placeholder="Enter your PIN">
+    <button class="btn" id="pinGo" type="button">Continue</button>
+    <div id="pinMsg"></div>
+  </section>
+  <section id="branchBox" class="card hidden">
+    <p class="small" id="who"></p>
+    <label>Which branch?</label>
+    <div class="tiles"><button class="tile" style="background:#08783f" data-branch="Alphaland">Alphaland</button><button class="tile" style="background:#0a5c33" data-branch="Solaire">Solaire</button></div>
+  </section>
+  <section id="groupBox" class="hidden"><button class="back-link" id="groupBack" type="button">← Back</button><p class="crumb" id="groupCrumb"></p><div class="tiles" id="tiles"></div></section>
+  <section id="actionBox" class="hidden"><button class="back-link" id="actionBack" type="button">← Back</button><p class="crumb" id="actionCrumb"></p><div class="list" id="actions"></div></section>
+  <section id="formBox" class="card hidden">
+    <button class="back-link" id="formBack" type="button">← Back</button>
+    <p class="crumb" id="formCrumb"></p>
+    <div id="fields"></div>
+    <label>Attachment (receipt or proof)</label>
+    <div class="file-picker" id="receiptPicker">
+      <label class="file-choice primary" for="receiptCamera">Take photo</label>
+      <input id="receiptCamera" class="file-input-hidden" type="file" accept="image/*" capture="environment">
+      <label class="file-choice" for="receipt">Upload file</label>
+      <input id="receipt" class="file-input-hidden" type="file" accept="image/jpeg,image/png,application/pdf">
+      <span class="file-name" id="receiptName">No file selected</span>
+    </div>
+    <button class="btn" id="reviewGo" type="button">Review</button>
+    <div id="formMsg"></div>
+  </section>
+  <section id="reviewBox" class="card hidden">
+    <h3 style="margin:0">Check before saving</h3>
+    <div id="reviewBody"></div>
+    <button class="btn" id="saveGo" type="button">Save</button>
+    <button class="btn light" id="backGo" type="button">Back</button>
+    <div id="saveMsg"></div>
+  </section>
+  <section id="doneBox" class="card hidden">
+    <div id="doneMsg"></div>
+    <button class="btn" id="againGo" type="button">Post another</button>
+    <button class="btn light" id="homeGo" type="button">Home</button>
+  </section>
+</main>
+<script src="/cashlog-simple.js"></script>
+<script>
+(() => {
+  const S = window.PsulitSimple, $ = (id) => document.getElementById(id);
+  const selectedAttachment = (id) => $(id + "Camera")?.files?.[0] || $(id)?.files?.[0];
+  function setupAttachmentPicker(id) {
+    const camera = $(id + "Camera"), upload = $(id), name = $(id + "Name");
+    const update = (source, other) => { if (source.files[0]) other.value = ""; name.textContent = source.files[0]?.name || "No file selected"; };
+    camera?.addEventListener("change", () => update(camera, upload));
+    upload?.addEventListener("change", () => update(upload, camera));
+  }
+  setupAttachmentPicker("receipt");
+  const CCYS = ["PHP","USD","JPY","KRW","EUR","SGD","HKD","AUD","CAD","CNY","TWD","THB","GBP","MYR","AED","SAR","QAR","BHD","KWD","CHF","NZD","VND","IDR","INR"];
+  const esc = (t) => String(t ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+  const peso = (n) => "₱" + Number(n || 0).toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const qty = (n) => Number(n || 0).toLocaleString("en-PH", { maximumFractionDigits: 2 });
+  const num = (t) => { const v = Number(String(t ?? "").replace(/,/g, "")); return Number.isFinite(v) ? v : NaN; };
+  const show = (box, kind, text) => { $(box).innerHTML = text ? `<div class="msg ${kind}">${esc(text)}</div>` : ""; };
+  const st = { pin: "", name: "", branch: "", group: null, action: null, actionCategory: null, parent: null, openList: [] };
+  const views = ["pinBox", "branchBox", "groupBox", "actionBox", "formBox", "reviewBox", "doneBox"];
+  const view = (id) => { views.forEach(v => $(v).classList.toggle("hidden", v !== id)); $("homeBtn").classList.toggle("hidden", !st.branch || id === "groupBox" || id === "pinBox" || id === "branchBox"); window.scrollTo(0, 0); };
+
+  async function api(path, opts = {}) {
+    let r, body = {};
+    try { r = await fetch(path, opts); } catch { throw new Error("No connection. Check the internet and try again."); }
+    try { body = await r.json(); } catch {}
+    if (!r.ok) { const e = new Error(body.error || `Request failed (${r.status})`); e.status = r.status; throw e; }
+    return body;
+  }
+
+  // ---- PIN and branch ----
+  $("pinGo").onclick = async () => {
+    const pin = $("pin").value.trim();
+    if (!/^\d{1,32}$/.test(pin)) return show("pinMsg", "err", "Enter your numeric PIN.");
+    $("pinGo").disabled = true;
+    try { const r = await api("/api/employee/verify", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ pin }) }); st.pin = pin; st.name = r.name; $("who").textContent = `Signed in as ${r.name}`; view("branchBox"); }
+    catch (e) { show("pinMsg", "err", e.message); }
+    $("pinGo").disabled = false;
+  };
+  $("pin").addEventListener("keydown", (e) => { if (e.key === "Enter") $("pinGo").click(); });
+  document.querySelectorAll("[data-branch]").forEach(b => b.onclick = () => { st.branch = b.dataset.branch; home(); });
+
+  // ---- groups and actions ----
+  function home() {
+    $("groupCrumb").innerHTML = `<b>${esc(st.branch)}</b> · ${esc(st.name)} · <a href="#" id="chgBranch">change branch</a>`;
+    $("tiles").innerHTML = S.GROUPS.map((g, i) => `<button class="tile${i === S.GROUPS.length - 1 && S.GROUPS.length % 2 ? " wide" : ""}" style="background:${g.color}" data-group="${g.id}">${esc(g.label)}</button>`).join("");
+    document.querySelectorAll("[data-group]").forEach(b => b.onclick = () => openGroup(b.dataset.group));
+    $("chgBranch").onclick = (e) => { e.preventDefault(); st.branch = ""; view("branchBox"); };
+    view("groupBox");
+  }
+  $("homeBtn").onclick = home; $("homeGo").onclick = home;
+  // In-flow Back navigation stays within the authenticated session; it never returns to PIN.
+  $("groupBack").onclick = () => view("branchBox");
+  $("actionBack").onclick = () => {
+    if (st.group?.id === "forex" && st.actionCategory) renderForexMenu();
+    else view("groupBox");
+  };
+  $("formBack").onclick = () => view("actionBox");
+  function openGroup(id) {
+    st.group = S.GROUPS.find(g => g.id === id);
+    $("actionCrumb").innerHTML = `<b>${esc(st.branch)}</b> · ${esc(st.group.label)}`;
+    st.actionCategory = null;
+    if (st.group.id === "forex") {
+      renderForexMenu();
+      return;
+    }
+    const renderAction = a => `<button data-action="${a.id}">${esc(a.label)}${a.link ? "<small>Opens the Interbranch page</small>" : a.info ? "<small>Entered in the Scratch It app</small>" : ""}</button>`;
+    $("actions").innerHTML = st.group.actions.map(renderAction).join("");
+    document.querySelectorAll("[data-action]").forEach(b => b.onclick = () => openAction(b.dataset.action));
+    view("actionBox");
+  }
+
+  function renderForexMenu() {
+    st.actionCategory = null;
+    const groups = [
+      ["Branch transfers", "Send, receive or hand over currency", ["fx-ib-sale", "fx-ib-hand", "fx-pickup", "fx-send", "fx-receive"]],
+      ["Borrowing & repayments", "Record money borrowed or returned", ["fx-lend", "fx-lend-back", "fx-borrow", "fx-borrow-back"]],
+      ["Other movements", "Hive, Scratch, LottoMatik, shortage or owner collection", ["fx-move", "fx-shortage", "fx-owner"]]
+    ];
+    $("actions").innerHTML = `<div class="forex-menu">${groups.map((g,i) => `<button type="button" data-fx-category="${i}"><div>${esc(g[0])}<br><span>${esc(g[1])}</span></div></button>`).join("")}</div>`;
+    document.querySelectorAll("[data-fx-category]").forEach(b => b.onclick = () => {
+      const g = groups[Number(b.dataset.fxCategory)];
+      st.actionCategory = Number(b.dataset.fxCategory);
+      const byId = new Map(st.group.actions.map(a => [a.id, a]));
+      const items = g[2].map(id => byId.get(id)).filter(Boolean);
+      $("actions").innerHTML = items.map(a => `<button data-action="${a.id}">${esc(a.label)}${a.link ? "<small>Opens the Interbranch page</small>" : a.info ? "<small>Entered in the Scratch It app</small>" : ""}</button>`).join("");
+      document.querySelectorAll("[data-action]").forEach(btn => btn.onclick = () => openAction(btn.dataset.action));
+      $("actionCrumb").innerHTML = `<b>${esc(st.branch)}</b> · Forex · ${esc(g[0])}`;
+    });
+    $("actionCrumb").innerHTML = `<b>${esc(st.branch)}</b> · Forex`;
+    view("actionBox");
+  }
+
+  // ---- the form for one action ----
+  function cond(inp, v) { return Object.entries(inp.when || {}).every(([k, val]) => v[k] === val); }
+  function openAction(id) {
+    const a = S.ACTIONS[id];
+    if (a.link) { location.href = a.link; return; }
+    st.action = a; st.parent = null; st.openList = [];
+    $("formCrumb").innerHTML = `<b>${esc(st.branch)}</b> · ${esc(a.groupLabel)} · ${esc(a.label)}`;
+    if (a.info) { $("fields").innerHTML = `<div class="msg warn">${esc(a.info)}</div>`; $("receiptPicker").classList.add("hidden"); $("reviewGo").classList.add("hidden"); view("formBox"); return; }
+    $("receiptPicker").classList.remove("hidden"); $("reviewGo").classList.remove("hidden");
+    $("fields").innerHTML = a.inputs.map((inp, i) => fieldHtml(inp, i)).join("");
+    $("receipt").value = ""; $("receiptCamera").value = ""; $("receiptName").textContent = "No file selected"; show("formMsg", "", "");
+    $("fields").querySelectorAll("input,select").forEach(el => { el.addEventListener("input", refresh); el.addEventListener("change", refresh); });
+    if (a.inputs.some(i => i.t === "open")) loadOpen(a.inputs.find(i => i.t === "open").category);
+    refresh(); view("formBox");
+  }
+  function fieldHtml(inp, i) {
+    const wrap = (inner) => `<div data-i="${i}">${inner}</div>`;
+    if (inp.t === "money") {
+      const id = inp.id || "m";
+      return wrap(`<label>${esc(inp.label || "Amount")}</label><div class="${inp.phpOnly || inp.norate ? "row2" : "row3"}" data-money="${id}">
+        <select data-k="ccy" aria-label="Currency"${inp.phpOnly ? " disabled" : ""}>${CCYS.map(c => `<option>${c}</option>`).join("")}</select>
+        <input data-k="amt" inputmode="decimal" placeholder="Amount" aria-label="Amount">
+        ${inp.phpOnly || inp.norate ? "" : `<input data-k="rate" inputmode="decimal" placeholder="Rate ₱" aria-label="Rate">`}</div><div class="hintv" data-hint="${id}"></div>`);
+    }
+    if (inp.t === "text") return wrap(`<label>${esc(inp.label)}</label><input data-v="${inp.id}" value="${esc(inp.value || "")}" placeholder="${esc(inp.placeholder || "")}">`);
+    if (inp.t === "select") return wrap(`<label>${esc(inp.label)}</label><select data-v="${inp.id}">${inp.value ? "" : `<option value="">Choose…</option>`}${inp.options.map(([v, l]) => `<option value="${esc(v)}"${inp.value === v ? " selected" : ""}>${esc(l)}</option>`).join("")}</select>`);
+    if (inp.t === "method") return wrap(`<label>How was it paid back?</label><select data-v="method"><option value="cash">Cash</option><option value="noncash">Non-cash (offset)</option></select>`);
+    if (inp.t === "payamt") return wrap(`<label>Amount paid back</label><input data-v="amt" inputmode="decimal" placeholder="Amount"><div class="hintv" data-hint="pay"></div>`);
+    if (inp.t === "open") return wrap(`<label>${inp.category === "Receivable" ? "Who is paying back" : "Which lender are you paying back?"}</label><div data-open><p class="small">Loading…</p></div>`);
+    if (inp.t === "cards") return wrap(`<label>Winning cards returned (peso value)</label><div class="row2"><span class="small" style="align-self:center">Go Banana</span><input data-card="GB" inputmode="decimal" placeholder="₱"></div><div class="row2" style="margin-top:6px"><span class="small" style="align-self:center">Red Hot 7</span><input data-card="RH" inputmode="decimal" placeholder="₱"></div><div class="row2" style="margin-top:6px"><span class="small" style="align-self:center">Go For Gold</span><input data-card="GFG" inputmode="decimal" placeholder="₱"></div><div class="hintv" data-hint="cards"></div>`);
+    return "";
+  }
+  function values() {
+    const v = {};
+    $("fields").querySelectorAll("[data-v]").forEach(el => { if (!el.closest("[data-i]").classList.contains("hidden")) v[el.dataset.v] = el.value; });
+    $("fields").querySelectorAll("[data-money]").forEach(box => { if (box.closest("[data-i]").classList.contains("hidden")) return; const m = {}; box.querySelectorAll("[data-k]").forEach(el => { m[el.dataset.k] = el.value; }); v[box.dataset.money] = m; });
+    const cards = {}; $("fields").querySelectorAll("[data-card]").forEach(el => { cards[el.dataset.card] = el.value; }); if (Object.keys(cards).length) v.cards = cards;
+    return v;
+  }
+  function refresh() {
+    const a = st.action; if (!a || !a.inputs) return;
+    const v = values();
+    a.inputs.forEach((inp, i) => {
+      const box = $("fields").querySelector(`[data-i="${i}"]`);
+      box.classList.toggle("hidden", !cond(inp, v));
+      if (inp.t === "money") {
+        const mb = box.querySelector("[data-money]"), sel = mb.querySelector('[data-k="ccy"]'), rate = mb.querySelector('[data-k="rate"]');
+        const forcePhp = inp.phpOnly || (inp.phpWhen && Object.entries(inp.phpWhen).every(([k, val]) => v[k] === val));
+        if (forcePhp) { sel.value = "PHP"; sel.disabled = true; } else if (!inp.phpOnly) sel.disabled = false;
+        if (rate) rate.classList.toggle("hidden", sel.value === "PHP");
+        const amt = num(mb.querySelector('[data-k="amt"]').value), r = rate ? num(rate.value) : NaN;
+        box.querySelector(`[data-hint="${inp.id || "m"}"]`).textContent = sel.value !== "PHP" && amt > 0 && r > 0 ? `= ${peso(Math.round(amt * r * 100) / 100)}` : "";
+      }
+    });
+    const ch = $("fields").querySelector('[data-hint="cards"]');
+    if (ch) { const t = ["GB", "RH", "GFG"].reduce((s, k) => s + (num(v.cards?.[k]) || 0), 0); ch.textContent = t ? `Total ${peso(t)}` : ""; }
+    const ph = $("fields").querySelector('[data-hint="pay"]');
+    if (ph) ph.textContent = st.parent ? `Still owed: ${qty(left(st.parent))} ${st.parent.actualCurrency || "PHP"}` : "Choose who above first.";
+  }
+  const left = (p) => { const units = Number(p.settlementOriginalAmountCentavos ?? p.amountCentavos) / 100, act = Number(p.actualAmount) > 0 ? Number(p.actualAmount) : units; return Math.round(Number(p.settlementRemainingCentavos) / 100 / (units / act) * 100) / 100; };
+  async function loadOpen(category) {
+    const box = $("fields").querySelector("[data-open]");
+    try {
+      const r = await api(`/api/settlements?branch=${encodeURIComponent(st.branch)}&category=${encodeURIComponent(category)}`);
+      st.openList = (r.records || []).filter(p => !/^IBX-/.test(String(p.transferReference || "")));
+      if (!st.openList.length) { box.innerHTML = `<p class="small">Nothing is open at ${esc(st.branch)}.</p>`; return; }
+      box.innerHTML = st.openList.map((p, k) => `<label class="opt" data-k="${k}"><input type="radio" name="parent" value="${k}"><b>${esc(p.borrowerCompany || "(no name)")}</b> — ${qty(left(p))} ${esc(p.actualCurrency || "PHP")} still owed<div class="meta">${esc(String(p.expenseDate || "").slice(0, 10))} · ${esc(p.description || "")}</div></label>`).join("");
+      box.querySelectorAll('input[name="parent"]').forEach(r => r.onchange = () => {
+        st.parent = st.openList[Number(r.value)];
+        box.querySelectorAll(".opt").forEach(o => o.classList.toggle("on", o.dataset.k === r.value));
+        const amt = $("fields").querySelector('[data-v="amt"]'); if (amt) amt.value = String(left(st.parent));
+        refresh();
+      });
+    } catch (e) { box.innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
+  }
+
+  // ---- review and save ----
+  let pending = null;
+  $("reviewGo").onclick = () => {
+    show("formMsg", "", "");
+    let fields;
+    try { fields = S.build(st.action.id, values(), { branch: st.branch, parent: st.parent }); } catch (e) { return show("formMsg", "err", e.message); }
+    const photo = selectedAttachment("receipt");
+    if (!photo) return show("formMsg", "err", "Add a photo of the receipt or proof.");
+    if (photo.size > 10485760) return show("formMsg", "err", "The photo is larger than 10 MB.");
+    pending = { fields, photo };
+    const ccy = fields.actualCurrency || "PHP";
+    const lines = [
+      ["Entry", `${st.action.groupLabel} · ${st.action.label}`],
+      ["Branch", st.branch],
+      ["Amount", fields.amount !== "" && fields.amount != null
+        ? (ccy === "PHP" ? peso(fields.amount) : `${qty(fields.actualAmount)} ${ccy} (${peso(fields.amount)})`)
+        : `${qty(fields.actualAmount)} ${ccy}`],
+      ...(fields.receivedCurrency ? [["Received", `${qty(fields.receivedAmount)} ${fields.receivedCurrency}`]] : []),
+      ...(fields.borrowerCompany ? [["Name", fields.borrowerCompany]] : []),
+      ...(fields.destinationFund && fields.category === "Internal Transfer" ? [["Moved", `${fields.fundDrawerUsed} → ${fields.destinationFund}`]] : []),
+      ...(fields.settlementMethod ? [["Paid back", fields.settlementMethod === "Offset / Non-Cash" ? "Non-cash (offset)" : "Cash"]] : []),
+      ["Description", fields.description]
+    ];
+    $("reviewBody").innerHTML = `<ul class="sum">${lines.map(([k, v]) => `<li><b>${esc(k)}:</b> ${esc(v)}</li>`).join("")}</ul><p class="small">Saved as “${esc(fields.category)}”${fields.otherCategory ? " — " + esc(fields.otherCategory) : ""} · ${esc(fields.fundDrawerUsed || "")}</p>`;
+    show("saveMsg", "", ""); view("reviewBox");
+  };
+  $("backGo").onclick = () => view("formBox");
+  $("saveGo").onclick = async () => {
+    if (!pending) return;
+    $("saveGo").disabled = true;
+    const f = new FormData(); f.set("pin", st.pin);
+    for (const [k, v] of Object.entries(pending.fields)) f.set(k, v);
+    f.set("receipt", pending.photo);
+    try {
+      const r = await api("/api/expenses", { method: "POST", body: f });
+      const okAll = r.slackStatus === "Posted" && r.sheetStatus === "Posted";
+      $("doneMsg").innerHTML = `<div class="msg ${okAll ? "ok" : "warn"}">Saved. Record ${esc(r.expenseId)}\nTelegram: ${esc(r.slackStatus)} · Google Sheets: ${esc(r.sheetStatus)}${okAll ? "" : "\nThe record is saved — do not post it again. Use Retry in the Classic form."}</div>`;
+      pending = null; view("doneBox");
+    } catch (e) { if (e.status === 401) { st.pin = ""; view("pinBox"); } show("saveMsg", "err", e.message); }
+    $("saveGo").disabled = false;
+  };
+  $("againGo").onclick = () => openGroup(st.group.id);
+})();
+</script>
+</body>
+</html>

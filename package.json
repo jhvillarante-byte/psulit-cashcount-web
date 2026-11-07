@@ -1,10 +1,1 @@
-{
-  "name": "psulit-cashcount-web",
-  "private": true,
-  "version": "1.0.0",
-  "dependencies": {
-    "@resvg/resvg-js": "^2.6.2",
-    "dejavu-fonts-ttf": "^2.37.3",
-    "sharp": "^0.34.3"
-  }
-}
+{"name":"psulit-expense","private":true,"type":"module","scripts":{"test":"node --test test-settlements.mjs"},"dependencies":{"@netlify/blobs":"^11.1.0","@netlify/database":"^2.0.1"}}

@@ -1,68 +1,70 @@
+redirectsOrigin = "config"
+plugins = []
+headers = []
+
 [build]
-  functions = "netlify/functions"
+publish = "."
+publishOrigin = "config"
 
-[functions]
-  included_files = ["node_modules/dejavu-fonts-ttf/ttf/*.ttf"]
+  [build.environment]
+  NODE_VERSION = "22"
 
-# Map the paths the app already calls onto the function files, so index.html
-# needs no change beyond pointing BACKEND at this same site.
-[[redirects]]
-  from = "/auth/session"
-  to = "/.netlify/functions/auth-session"
-  status = 200
-  force = true
+  [build.processing]
 
-[[redirects]]
-  from = "/send-slack"
-  to = "/.netlify/functions/send-slack"
-  status = 200
-  force = true
+    [build.processing.css]
 
-[[redirects]]
-  from = "/send-report"
-  to = "/.netlify/functions/send-report-live"
-  status = 200
-  force = true
+    [build.processing.html]
+
+    [build.processing.images]
+
+    [build.processing.js]
+
+  [build.services]
 
 [[redirects]]
-  from = "/send-report-live"
-  to = "/.netlify/functions/send-report-live"
-  status = 200
-  force = true
+from = "/api/*"
+to = "/.netlify/functions/api/:splat"
+status = 200
+force = true
+
+  [redirects.query]
+
+  [redirects.conditions]
+
+  [redirects.headers]
 
 [[redirects]]
-  from = "/backfill-opening"
-  to = "/.netlify/functions/backfill-opening"
-  status = 200
-  force = true
+from = "/receipts/*"
+to = "/.netlify/functions/api/receipts/:splat"
+status = 200
+force = true
+
+  [redirects.query]
+
+  [redirects.conditions]
+
+  [redirects.headers]
 
 [[redirects]]
-  from = "/preview-opening-report"
-  to = "/.netlify/functions/preview-opening-report"
-  status = 200
-  force = true
+from = "/"
+to = "/log.html"
+status = 200
+force = true
 
 [[redirects]]
-  from = "/open-receivables"
-  to = "/.netlify/functions/open-receivables"
-  status = 200
-  force = true
+from = "/classic"
+to = "/index.html"
+status = 200
+force = true
 
 [[redirects]]
-  from = "/open-payables"
-  to = "/.netlify/functions/open-payables"
-  status = 200
-  force = true
+from = "/*"
+to = "/index.html"
+status = 200
+force = false
 
+  [redirects.query]
 
-[[redirects]]
-  from = "/open-rec-payables"
-  to = "/.netlify/functions/open-rec-payables"
-  status = 200
-  force = true
+  [redirects.conditions]
 
-[[redirects]]
-  from = "/send-corrected-image"
-  to = "/.netlify/functions/send-corrected-image"
-  status = 200
-  force = true
+  [redirects.headers]

@@ -1,0 +1,17 @@
+PSulit Expense / Cash Movement → Google Sheets bridge
+
+Target workbook: PSULIT OPERATIONS APP LOG 2026
+Target tabs:
+- Alphaland Expense & Cash Movement
+- Solaire Expense & Cash Movement
+
+1. Create a NEW standalone Apps Script project at script.google.com so this does not interfere with the existing Cash Count webhook.
+2. Paste Code.gs into the project.
+3. Project Settings → Script properties → add EXPENSE_SHEET_WEBHOOK_SECRET with a strong random value.
+4. Deploy → New deployment → Web app. Execute as you. Access must allow the Netlify server to POST to it.
+5. In the Netlify project psulit-expense, add production function/runtime variables:
+   EXPENSE_SHEET_WEBHOOK_URL = the Apps Script /exec URL
+   EXPENSE_SHEET_WEBHOOK_SECRET = the same secret
+6. Deploy the updated expense package.
+
+The bridge is idempotent by Record ID / Sync Key: a retry updates the existing row instead of creating a duplicate.
