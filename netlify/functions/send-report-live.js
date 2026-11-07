@@ -150,7 +150,7 @@ function buildCashCountRows(message, branch) {
   // "🐝 HIVE: 🇵🇭 PHP — ₱12,345.00". Parse this too; the detailed
   // per-denomination Hive sections are only present in the separate breakdown.
   for (const line of lines) {
-    const hiveSummary = line.match(/^🐝\\s*HIVE:\\s*.*?\\b([A-Z]{3})\\s+—\\s+(.+)$/i);
+    const hiveSummary = line.match(/^🐝\s*HIVE:\s*.*?\b([A-Z]{3})\s+—\s+(.+)$/i);
     if (!hiveSummary) continue;
     const currency = hiveSummary[1].toUpperCase();
     const amount = numberFrom(hiveSummary[2]);
