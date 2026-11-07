@@ -1959,10 +1959,12 @@ ${line}
 `;
   }
   if(isOtherSelected("hive")) {
-    const hiveCur = CURRENCIES.find(c => c.code === hiveCurrency);
-    const hiveTotal = getHiveCurrencyTotal(hiveCurrency);
-    if(hiveCur && hiveTotal > 0) {
-      msg += `${line}\n🐝 HIVE: ${hiveCur.flag} ${hiveCur.code} — ${fmt(hiveCur.code,hiveTotal)}\n`;
+    const hiveBalances = getHiveReportLines();
+    if(hiveBalances.length > 0) {
+      msg += `${line}\n`;
+      hiveBalances.forEach(({cur,total}) => {
+        msg += `🐝 HIVE: ${cur.flag} ${cur.code} — ${fmt(cur.code,total)}\n`;
+      });
     }
   }
 
