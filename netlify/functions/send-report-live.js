@@ -116,6 +116,36 @@ function buildCashCountRows(message, branch) {
     addRow(`FUND-${slug(meta[1])}-${slug(meta[2])}`, { category: meta[0], currency: meta[2], fundAccount: meta[1], amount, phpEquivalent: amount, quantityUnits: "", notes: "" });
   }
 
+  // Hive is reported as separate currency sections, e.g. "Hive — PHP (Philippine Peso)"
+  // followed by "Subtotal: ₱...". Parse each section subtotal so all Hive currencies
+  // reach the live sheet, not just the currently selected currency in the header.
+  let hiveCurrencySection = "";
+  for (const line of lines) {
+    const hiveHeader = line.match(/^(?:🐝\\s*)?Hive\\s+—\\s+([A-Z]{3})\\s+\\([^)]*\\)\\s*$/i);
+    if (hiveHeader) {
+      hiveCurrencySection = hiveHeader[1].toUpperCase();
+      continue;
+    }
+    if (hiveCurrencySection) {
+      const hiveSubtotal = line.match(/^Subtotal:\\s*(.+)$/i);
+      if (hiveSubtotal) {
+        const amount = numberFrom(hiveSubtotal[1]);
+        if (amount !== null) {
+          addRow(`FUND-HIVE-${slug(hiveCurrencySection)}`, {
+            category: "Fund Balance",
+            currency: hiveCurrencySection,
+            fundAccount: "Hive",
+            amount,
+            phpEquivalent: hiveCurrencySection === "PHP" ? amount : "",
+            quantityUnits: "",
+            notes: ""
+          });
+        }
+        hiveCurrencySection = "";
+      }
+    }
+  }
+
   // AR Booklets Remaining — save as a separate inventory row so the audit and sheet track it.
   const arBooklets = numberFrom(firstMatch(text, /AR Booklets Remaining:\s*(\d+)/i));
   if (arBooklets !== null) {
