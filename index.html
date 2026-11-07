@@ -310,16 +310,15 @@
       </div>
       <div class="tab-row" id="other-tab-row" style="display:none"></div>
       <div id="other-section-hive" class="denom-section">
-        <div class="field-group" style="margin-bottom:12px;">
-          <label class="field-label" for="hive-currency-select">Hive Currency</label>
-          <select id="hive-currency-select" onchange="changeHiveCurrency(this.value)" style="width:100%;padding:11px 12px;border:1.5px solid #e2e8f0;border-radius:9px;font-size:15px;background:#fff;color:#1e3a5f;font-weight:700;">
-            <option value="PHP">🇵🇭 PHP — Philippine Peso</option>
-          </select>
+        <div class="field-group">
+          <label class="field-label">Currencies on Hand</label>
+          <div class="cur-grid" id="hive-cur-grid"></div>
         </div>
-        <div class="denom-table" id="hive-denom-table">
-          <div class="denom-header"><span>🐝 HIVE (PHP)</span><span>QTY (PCS)</span><span>SUBTOTAL</span></div>
-          <div id="hive-denom-rows"></div>
-          <div class="denom-total"><span>TOTAL HIVE</span><span></span><span class="total-amt" id="other-hive-total">₱0.00</span></div>
+        <div class="tab-row" id="hive-tab-row"></div>
+        <div id="hive-denom-sections"></div>
+        <div class="all-cur-summary" id="hive-all-cur-summary" style="display:none">
+          <div class="all-cur-title">All Currency Total</div>
+          <div id="hive-all-cur-rows"></div>
         </div>
       </div>
       <div id="other-section-juanpay" class="denom-section">
@@ -960,8 +959,9 @@ const OTHER_ITEMS_BY_BRANCH = { Solaire: ["hive"], Alphaland: ["hive","juanpay",
 const ALL_OTHER_ITEMS = ["hive","juanpay","scratch","lottomatik"];
 const PHP_DENOM_VALS = [1000,500,200,100,50,20,10,5,1,0.25,0.1,0.05,0.01];
 
-// Hive keeps an independent denomination count for each of PSulit's 25 currencies.
+// Hive has its own multi-currency selector and denomination inputs, separate from Forex.
 let hiveCurrency = "PHP";
+let hiveActiveCurrencies = ["PHP"];
 const hiveCounts = Object.fromEntries(CURRENCIES.map(c => [c.code, {}]));
 function hiveDenomKey(v) { return String(v).replace(".", "_"); }
 function saveHiveCurrencyInputs() {
@@ -972,50 +972,125 @@ function saveHiveCurrencyInputs() {
     if(input) hiveCounts[hiveCurrency][hiveDenomKey(d.v)] = Math.max(0, parseInt(input.value || "0", 10) || 0);
   });
 }
-function renderHiveCurrency() {
-  const cur = CURRENCIES.find(c => c.code === hiveCurrency);
-  if(!cur) return;
-  const select = document.getElementById("hive-currency-select");
-  if(select && select.value !== hiveCurrency) select.value = hiveCurrency;
-  const rows = document.getElementById("hive-denom-rows");
-  const header = document.querySelector("#hive-denom-table .denom-header");
-  if(header) header.innerHTML = `<span>🐝 HIVE (${cur.code})</span><span>QTY (PCS)</span><span>SUBTOTAL</span>`;
-  if(!rows) return;
-  rows.innerHTML = cur.denoms.map(d => {
-    const key = hiveDenomKey(d.v);
-    const qty = hiveCounts[hiveCurrency][key] || 0;
-    return `<div class="denom-row"><span class="denom-label">${d.l}</span><input class="denom-input" type="number" min="0" step="1" placeholder="0" id="hive-qty-${key}" value="${qty || ""}" oninput="calcHiveTotal()"><span class="denom-sub" id="hive-sub-${key}">—</span></div>`;
-  }).join("");
-  calcHiveTotal();
-}
-function changeHiveCurrency(code) {
-  saveHiveCurrencyInputs();
-  if(CURRENCIES.some(c => c.code === code)) hiveCurrency = code;
-  renderHiveCurrency();
-}
 function getHiveCurrencyTotal(code) {
   const cur = CURRENCIES.find(c => c.code === code);
   if(!cur) return 0;
   if(code === hiveCurrency) saveHiveCurrencyInputs();
   return Math.round(cur.denoms.reduce((sum,d) => sum + (Number(hiveCounts[code][hiveDenomKey(d.v)]) || 0) * d.v, 0) * 100) / 100;
 }
+function buildHiveCurrencyGrid() {
+  const grid = document.getElementById("hive-cur-grid");
+  if(!grid || grid.children.length) return;
+  CURRENCIES.forEach(cur => {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "cur-btn" + (hiveActiveCurrencies.includes(cur.code) ? " selected" : "");
+    btn.id = "hive-cur-btn-" + cur.code;
+    btn.innerHTML = `<span class="cur-flag">${cur.flag}</span><span class="cur-code">${cur.code}</span><span class="cur-check">✓</span>`;
+    btn.onclick = () => toggleHiveCurrency(cur.code, btn);
+    grid.appendChild(btn);
+  });
+  buildHiveDenomSections();
+  buildHiveTabs();
+  updateHiveAllCurSummary();
+}
+function toggleHiveCurrency(code, btn) {
+  saveHiveCurrencyInputs();
+  if(hiveActiveCurrencies.includes(code)) {
+    if(hiveActiveCurrencies.length === 1) return;
+    hiveActiveCurrencies = hiveActiveCurrencies.filter(c => c !== code);
+    btn.classList.remove("selected");
+    if(hiveCurrency === code) hiveCurrency = hiveActiveCurrencies[0];
+  } else {
+    hiveActiveCurrencies.push(code);
+    btn.classList.add("selected");
+    hiveCurrency = code;
+  }
+  buildHiveDenomSections();
+  buildHiveTabs();
+  updateHiveAllCurSummary();
+}
+function buildHiveDenomSections() {
+  const container = document.getElementById("hive-denom-sections");
+  if(!container) return;
+  container.innerHTML = "";
+  hiveActiveCurrencies.forEach(code => {
+    const cur = CURRENCIES.find(c => c.code === code);
+    if(!cur) return;
+    const div = document.createElement("div");
+    div.className = "denom-section" + (code === hiveCurrency ? " active" : "");
+    div.id = "hive-denom-sec-" + code;
+    let html = `<div class="denom-table"><div class="denom-header"><span>🐝 HIVE (${cur.code})</span><span>QTY (PCS)</span><span>SUBTOTAL</span></div>`;
+    cur.denoms.forEach(d => {
+      const key = hiveDenomKey(d.v);
+      const qty = hiveCounts[code][key] || 0;
+      html += `<div class="denom-row"><span class="denom-label">${d.l}</span><input class="denom-input" type="number" min="0" step="1" placeholder="0" id="hive-qty-${code}-${key}" value="${qty || ""}" oninput="calcHiveTotal()"><span class="denom-sub" id="hive-sub-${code}-${key}">—</span></div>`;
+    });
+    html += `<div class="denom-total"><span>TOTAL ${code}</span><span></span><span class="total-amt" id="hive-total-${code}">${fmt(code, getHiveCurrencyTotal(code))}</span></div></div>`;
+    div.innerHTML = html;
+    container.appendChild(div);
+  });
+  calcHiveTotal();
+}
+function buildHiveTabs() {
+  const row = document.getElementById("hive-tab-row");
+  if(!row) return;
+  row.innerHTML = "";
+  hiveActiveCurrencies.forEach(code => {
+    const cur = CURRENCIES.find(c => c.code === code);
+    const total = getHiveCurrencyTotal(code);
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "tab-btn" + (code === hiveCurrency ? " active" : "");
+    btn.id = "hive-tab-" + code;
+    btn.innerHTML = `${cur.flag} ${code}<span class="tab-total" id="hive-tabtotal-${code}">${total > 0 ? fmt(code,total) : ""}</span>`;
+    btn.onclick = () => changeHiveCurrency(code);
+    row.appendChild(btn);
+  });
+}
+function changeHiveCurrency(code) {
+  saveHiveCurrencyInputs();
+  if(!hiveActiveCurrencies.includes(code)) return;
+  hiveCurrency = code;
+  document.querySelectorAll("#hive-tab-row .tab-btn").forEach(b => b.classList.toggle("active", b.id === "hive-tab-" + code));
+  document.querySelectorAll("#hive-denom-sections .denom-section").forEach(s => s.classList.toggle("active", s.id === "hive-denom-sec-" + code));
+}
 function calcHiveTotal() {
   saveHiveCurrencyInputs();
-  const cur = CURRENCIES.find(c => c.code === hiveCurrency);
-  if(!cur) return;
-  let total = 0;
-  cur.denoms.forEach(d => {
-    const key = hiveDenomKey(d.v);
-    const qty = Number(hiveCounts[hiveCurrency][key]) || 0;
-    const sub = qty * d.v;
-    total += sub;
-    const subEl = document.getElementById("hive-sub-" + key);
-    if(subEl) subEl.textContent = sub > 0 ? "= " + fmt(hiveCurrency, sub) : "—";
+  hiveActiveCurrencies.forEach(code => {
+    const cur = CURRENCIES.find(c => c.code === code);
+    if(!cur) return;
+    let total = 0;
+    cur.denoms.forEach(d => {
+      const key = hiveDenomKey(d.v);
+      const qty = Number(hiveCounts[code][key]) || 0;
+      const sub = qty * d.v;
+      total += sub;
+      const subEl = document.getElementById("hive-sub-" + code + "-" + key);
+      if(subEl) subEl.textContent = sub > 0 ? "= " + fmt(code, sub) : "—";
+    });
+    const totalEl = document.getElementById("hive-total-" + code);
+    if(totalEl) totalEl.textContent = fmt(code, total);
+    const tabTotal = document.getElementById("hive-tabtotal-" + code);
+    if(tabTotal) tabTotal.textContent = total > 0 ? fmt(code, total) : "";
   });
-  const totalEl = document.getElementById("other-hive-total");
-  if(totalEl) totalEl.textContent = fmt(hiveCurrency, total);
-  const tabTotal = document.getElementById("other-tabtotal-hive");
-  if(tabTotal) tabTotal.textContent = total > 0 ? fmt(hiveCurrency, total) : "";
+  updateHiveAllCurSummary();
+}
+function updateHiveAllCurSummary() {
+  const box = document.getElementById("hive-all-cur-summary");
+  const rows = document.getElementById("hive-all-cur-rows");
+  if(!box || !rows) return;
+  if(hiveActiveCurrencies.length < 2) { box.style.display = "none"; return; }
+  box.style.display = "block";
+  rows.innerHTML = "";
+  hiveActiveCurrencies.forEach(code => {
+    const cur = CURRENCIES.find(c => c.code === code);
+    const total = getHiveCurrencyTotal(code);
+    const div = document.createElement("div");
+    div.className = "all-cur-row";
+    div.innerHTML = `<span>${cur.flag} ${code}</span><strong style="color:${total > 0 ? "#16a34a" : "#94a3b8"}">${fmt(code,total)}</strong>`;
+    rows.appendChild(div);
+  });
 }
 function getHiveReportLines(includeZero = false) {
   saveHiveCurrencyInputs();
@@ -1672,12 +1747,7 @@ function switchMainTab(tab) {
 
 
 function initHiveCurrencyDropdown() {
-  const select = document.getElementById("hive-currency-select");
-  if(!select || select.dataset.ready === "1") return;
-  select.innerHTML = CURRENCIES.map(c => `<option value="${c.code}">${c.flag} ${c.code} — ${c.name}</option>`).join("");
-  select.value = "PHP";
-  select.dataset.ready = "1";
-  renderHiveCurrency();
+  buildHiveCurrencyGrid();
 }
 
 function buildCurrencyGrid() {
