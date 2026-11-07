@@ -101,9 +101,26 @@ function today() {
 
 function employees(): Record<string, string> | null {
   try {
-    const data = JSON.parse(env("EMPLOYEE_PINS") || "null");
+    // Cash Log historically used EMPLOYEE_PINS (PIN -> employee name).
+    // The shared Cash Count login configuration is TELLER_PINS_JSON
+    // (PIN -> { name, branches }); accept either format so both entry points
+    // use the same existing employee PIN records.
+    const raw = env("EMPLOYEE_PINS") || env("TELLER_PINS_JSON") || "null";
+    const data = JSON.parse(raw);
     if (!data || Array.isArray(data) || typeof data !== "object") return null;
-    return Object.entries(data).every(([pin, name]) => /^\d+$/.test(pin) && typeof name === "string" && name.trim()) ? data : null;
+
+    const normalized: Record<string, string> = {};
+    for (const [pin, entry] of Object.entries(data)) {
+      if (!/^\d+$/.test(pin)) return null;
+      const name = typeof entry === "string"
+        ? entry
+        : entry && typeof entry === "object" && "name" in entry
+          ? String((entry as Row).name || "")
+          : "";
+      if (!name.trim()) return null;
+      normalized[pin] = name.trim();
+    }
+    return Object.keys(normalized).length ? normalized : null;
   } catch { return null; }
 }
 
