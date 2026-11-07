@@ -274,9 +274,11 @@
     const lines = [
       ["Entry", `${st.action.groupLabel} · ${st.action.label}`],
       ["Branch", st.branch],
-      ["Amount", fields.amount !== "" && fields.amount != null
-        ? (ccy === "PHP" ? peso(fields.amount) : `${qty(fields.actualAmount)} ${ccy} (${peso(fields.amount)})`)
-        : `${qty(fields.actualAmount)} ${ccy}`],
+      ["Amount", ["Hive In", "Hive Out", "Hive Commission"].includes(fields.category)
+        ? `${qty(fields.actualAmount)} ${ccy}`
+        : fields.amount !== "" && fields.amount != null
+          ? (ccy === "PHP" ? peso(fields.amount) : `${qty(fields.actualAmount)} ${ccy} (${peso(fields.amount)})`)
+          : `${qty(fields.actualAmount)} ${ccy}`],
       ...(fields.receivedCurrency ? [["Received", `${qty(fields.receivedAmount)} ${fields.receivedCurrency}`]] : []),
       ...(fields.borrowerCompany ? [["Name", fields.borrowerCompany]] : []),
       ...(fields.destinationFund && fields.category === "Internal Transfer" ? [["Moved", `${fields.fundDrawerUsed} → ${fields.destinationFund}`]] : []),
