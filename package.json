@@ -1,1 +1,11 @@
-{"name":"psulit-expense","private":true,"type":"module","scripts":{"test":"node --test test-settlements.mjs"},"dependencies":{"@netlify/blobs":"11.1.7","@netlify/database":"^2.0.1"}}
+{
+  "name": "psulit-expense",
+  "private": true,
+  "scripts": {
+    "test": "node --test test-settlements.mjs"
+  },
+  "dependencies": {
+    "@netlify/blobs": "11.1.7",
+    "@netlify/database": "^2.0.1"
+  }
+}
