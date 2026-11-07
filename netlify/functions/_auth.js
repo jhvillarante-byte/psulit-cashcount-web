@@ -1,13 +1,8 @@
-// Shared auth helpers for the Psulit Cash Count functions.
-//
-// Netlify Functions are stateless — each request may run in a fresh container,
-// so there is nowhere to keep a session map. Instead we issue a signed token
-// that carries its own payload. The signature proves we issued it; the expiry
-// inside it proves it is still current. Nothing needs to be stored anywhere.
+// Shared authentication helpers for PSulit Cash Count.
 
-const crypto = require("crypto");
+import crypto from "node:crypto";
 
-const TOKEN_TTL_MS = 12 * 60 * 60 * 1000; // one shift
+const TOKEN_TTL_MS = 12 * 60 * 60 * 1000;
 
 function getSecret() {
   const secret = process.env.SESSION_SECRET;
@@ -16,54 +11,64 @@ function getSecret() {
 }
 
 function sign(payloadB64, secret) {
-  return crypto.createHmac("sha256", secret).update(payloadB64).digest("hex");
+  return crypto
+    .createHmac("sha256", secret)
+    .update(payloadB64)
+    .digest("hex");
 }
 
-// Build a token for a teller who has just presented a valid PIN.
-function issueToken(teller, branches) {
+export function issueToken(teller, branches) {
   const secret = getSecret();
   if (!secret) return null;
+
   const payload = {
     teller,
     branches: branches || [],
     exp: Date.now() + TOKEN_TTL_MS,
   };
-  const payloadB64 = Buffer.from(JSON.stringify(payload)).toString("base64url");
+
+  const payloadB64 = Buffer
+    .from(JSON.stringify(payload))
+    .toString("base64url");
+
   return `${payloadB64}.${sign(payloadB64, secret)}`;
 }
 
-// Verify a token from an Authorization header. Returns the payload or null.
-function verifyToken(authHeader) {
+export function verifyToken(authHeader) {
   const secret = getSecret();
   if (!secret) return null;
 
   const raw = (authHeader || "").startsWith("Bearer ")
     ? authHeader.slice(7).trim()
     : "";
+
   if (!raw || !raw.includes(".")) return null;
 
   const [payloadB64, providedSig] = raw.split(".");
   if (!payloadB64 || !providedSig) return null;
 
   const expectedSig = sign(payloadB64, secret);
-
-  // Constant-time compare so a wrong signature cannot be guessed by timing.
   const a = Buffer.from(providedSig);
   const b = Buffer.from(expectedSig);
-  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return null;
+
+  if (a.length !== b.length ||
+      !crypto.timingSafeEqual(a, b)) return null;
 
   let payload;
   try {
-    payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8"));
-  } catch (e) {
+    payload = JSON.parse(
+      Buffer.from(payloadB64, "base64url").toString("utf8")
+    );
+  } catch {
     return null;
   }
 
   if (!payload.exp || payload.exp < Date.now()) return null;
+
   return payload;
 }
 
-function json(statusCode, body) {
+export function json(statusCode, body) {
   return {
     statusCode,
     headers: { "Content-Type": "application/json" },
@@ -71,20 +76,20 @@ function json(statusCode, body) {
   };
 }
 
-// Reject anything that is not a POST, so a stray GET cannot trigger a send.
-function requirePost(event) {
+export function requirePost(event) {
   if (event.httpMethod !== "POST") {
-    return json(405, { ok: false, error: "Method not allowed." });
+    return json(405, {
+      ok: false,
+      error: "Method not allowed.",
+    });
   }
   return null;
 }
 
-function parseBody(event) {
+export function parseBody(event) {
   try {
     return JSON.parse(event.body || "{}");
-  } catch (e) {
+  } catch {
     return null;
   }
 }
-
-module.exports = { issueToken, verifyToken, json, requirePost, parseBody };
