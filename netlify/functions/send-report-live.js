@@ -146,6 +146,28 @@ function buildCashCountRows(message, branch) {
     }
   }
 
+  // Telegram's submitted report uses a compact Hive summary line, for example:
+  // "🐝 HIVE: 🇵🇭 PHP — ₱12,345.00". Parse this too; the detailed
+  // per-denomination Hive sections are only present in the separate breakdown.
+  for (const line of lines) {
+    const hiveSummary = line.match(/^🐝\\s*HIVE:\\s*.*?\\b([A-Z]{3})\\s+—\\s+(.+)$/i);
+    if (!hiveSummary) continue;
+    const currency = hiveSummary[1].toUpperCase();
+    const amount = numberFrom(hiveSummary[2]);
+    const suffix = `FUND-HIVE-${slug(currency)}`;
+    if (amount !== null && !rows.some(row => row.syncKey === `${reference}:${suffix}`)) {
+      addRow(suffix, {
+        category: "Fund Balance",
+        currency,
+        fundAccount: "Hive",
+        amount,
+        phpEquivalent: currency === "PHP" ? amount : "",
+        quantityUnits: "",
+        notes: ""
+      });
+    }
+  }
+
   // AR Booklets Remaining — save as a separate inventory row so the audit and sheet track it.
   const arBooklets = numberFrom(firstMatch(text, /AR Booklets Remaining:\s*(\d+)/i));
   if (arBooklets !== null) {
