@@ -1688,24 +1688,12 @@ function saveAllBalances() {
 
 function formatRecPayForReport(type) {
   const label = type === 'receivables' ? '📥 Receivables — Owed to PSulit' : '📤 Payables — Owed by PSulit';
-  const entries = getEntries(type).filter(e => !e.settled && Number(e.amt) > 0);
-  if(entries.length === 0) return '';
-
-  // Report only the current outstanding balance per party and currency.
-  // Keep currencies separate so foreign-currency balances are never combined.
-  const grouped = new Map();
-  entries.forEach(e => {
-    const name = String(e.name || '').trim();
-    const currency = String(e.cur || 'PHP').trim().toUpperCase();
-    const key = name.toLocaleLowerCase() + '::' + currency;
-    if(!grouped.has(key)) grouped.set(key, { name, currency, amount: 0 });
-    grouped.get(key).amount += Number(e.amt) || 0;
-  });
-
+  const entries = getEntries(type);
+  const active = entries.filter(e => !e.settled && e.amt > 0);
+  if(active.length === 0) return '';
   let lines = `${label}\n`;
-  grouped.forEach(e => {
-    const symbol = e.currency === 'PHP' ? '₱' : e.currency + ' ';
-    lines += `${e.name} — ${symbol}${e.amount.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}\n`;
+  active.forEach(e => {
+    lines += `${e.name} — ${e.cur === 'PHP' ? '₱' : e.cur + ' '}${e.amt.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}${e.reason ? ` (${e.reason})` : ''}\n`;
   });
   return lines;
 }
