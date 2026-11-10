@@ -114,6 +114,18 @@ function doGet(e) {
 var RCV_PARTIES_SHEET = 'Receivable Parties';
 
 function rcvNum_(v) { var x = Number(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')); return isFinite(x) ? x : 0; }
+// Always use the PHP valuation for foreign-currency entries when the source
+// provides Actual Amount, Actual Currency and Valuation Rate. Amount PHP may
+// contain the unconverted foreign amount in older interbranch-sale records.
+function rcvAmountPhp_(row) {
+  var currency = String(rcvField_(row, ['Actual Currency', 'Currency'])).trim().toUpperCase();
+  var actualAmount = rcvNum_(rcvField_(row, ['Actual Amount']));
+  var valuationRate = rcvNum_(rcvField_(row, ['Valuation Rate']));
+  if (currency && currency !== 'PHP' && actualAmount > 0 && valuationRate > 0) {
+    return rcvRound_(actualAmount * valuationRate);
+  }
+  return rcvNum_(rcvField_(row, ['Amount PHP', 'Amount']));
+}
 function rcvKey_(s) { return String(s == null ? '' : s).toLowerCase().replace(/[^a-z0-9]/g, ''); }
 function rcvRound_(x) { return Math.round((Number(x) + 1e-9) * 100) / 100; }
 function rcvDate_(v) {
@@ -197,7 +209,7 @@ function computeOpenReceivables_(branch, expenseRows, partyRows) {
   (expenseRows || []).forEach(function (row) {
     var dir = rcvDirection_(row);
     if (!dir) return;
-    var amount = rcvNum_(rcvField_(row, ['Amount PHP', 'Amount']));
+    var amount = rcvAmountPhp_(row);
     if (!(amount > 0)) return;
     var e = {
       dir: dir, amount: amount,
