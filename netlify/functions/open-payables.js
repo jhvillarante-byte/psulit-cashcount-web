@@ -47,13 +47,15 @@ exports.handler = async (event) => {
       for (const item of sourcePayables) {
         const name = canonicalParty(item && item.name);
         if (!name) continue;
-        const key = name.toLowerCase();
+        const currency = String(item && item.currency || "PHP").toUpperCase();
+        const key = name.toLowerCase() + "|" + currency;
         const existing = normalized.get(key);
         if (existing) {
           existing.amount = Number(existing.amount || 0) + Number(item.amount || 0);
+          existing.phpEquivalent = Number(existing.phpEquivalent || 0) + Number(item.phpEquivalent || 0);
           existing.lastActivity = [existing.lastActivity, item.lastActivity].filter(Boolean).sort().pop() || "";
         } else {
-          normalized.set(key, { ...item, name, amount: Number(item.amount || 0) });
+          normalized.set(key, { ...item, name, currency, amount: Number(item.amount || 0), phpEquivalent: Number(item.phpEquivalent || 0) });
         }
       }
       const payables = Array.from(normalized.values()).sort((a, b) => a.name.localeCompare(b.name));

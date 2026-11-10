@@ -457,7 +457,7 @@
     <!-- RECEIVABLES -->
     <div style="margin-bottom:20px;">
       <div style="font-weight:800;font-size:14px;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">
-        📥 Receivables — Owed to PSulit
+        <span id="receivables-heading">📥 Receivables — Owed to selected branch</span>
       </div>
       <div id="receivables-status" style="font-size:12px;margin-bottom:10px;"></div>
       <div id="receivables-list"></div>
@@ -466,7 +466,7 @@
     <!-- PAYABLES -->
     <div style="margin-bottom:20px;">
       <div style="font-weight:800;font-size:14px;color:#1e3a5f;text-transform:uppercase;letter-spacing:0.5px;margin-bottom:10px;">
-        📤 Payables — Owed by PSulit
+        <span id="payables-heading">📤 Payables — Owed by selected branch</span>
       </div>
       <div id="payables-status" style="font-size:12px;margin-bottom:10px;"></div>
       <div id="payables-list"></div>
@@ -1514,21 +1514,28 @@ function setPayStatus(kind, info) {
 
 function makeAutoEntryHTML(id, entry) {
   const amt = Number(entry.amount) || 0;
+  const currency = String(entry.currency || 'PHP').toUpperCase();
   const amtText = amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  const amountLabel = currency === 'PHP' ? fmtAmt(amt, 'PHP') : `${currency} ${amtText}`;
+  const equivalent = currency !== 'PHP' && Number(entry.phpEquivalent) > 0
+    ? `<div style="font-size:11px;color:#64748b;margin-top:3px;">PHP equivalent ₱${Number(entry.phpEquivalent).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} · valuation only</div>`
+    : '';
   const last = entry.lastActivity ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">Last activity ${recEsc(entry.lastActivity)}</div>` : '';
   return `
     <div id="entry-${id}" data-locked="1" data-auto="1" style="background:#f0fdf4;border-radius:10px;padding:12px;margin-bottom:10px;border:1.5px solid #bbf7d0;">
-      <div style="display:flex;justify-content:space-between;align-items:center;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
         <div>
           <div style="font-weight:700;font-size:14px;color:#1e3a5f;">${recEsc(entry.name)}</div>
-          <div style="font-size:15px;color:#16a34a;font-weight:700;margin-top:2px;">${fmtAmt(amt, 'PHP')}</div>
+          <div style="font-size:15px;color:#16a34a;font-weight:700;margin-top:2px;">${amountLabel}</div>
+          ${equivalent}
           ${last}
         </div>
-        <span style="font-size:11px;font-weight:800;color:#15803d;background:#dcfce7;border-radius:6px;padding:4px 8px;">FROM CASH LOG</span>
+        <span style="font-size:11px;font-weight:800;color:#15803d;background:#dcfce7;border-radius:6px;padding:4px 8px;white-space:nowrap;">FROM CASH LOG</span>
       </div>
       <input type="hidden" id="name-${id}" value="${recEsc(entry.name)}">
-      <input type="hidden" id="cur-${id}" value="PHP">
+      <input type="hidden" id="cur-${id}" value="${recEsc(currency)}">
       <input type="hidden" id="amt-${id}" value="${amtText}">
+      <input type="hidden" id="phpeq-${id}" value="${Number(entry.phpEquivalent) > 0 ? Number(entry.phpEquivalent) : ''}">
       <input type="hidden" id="settled-${id}" value="0">
       <input type="hidden" id="savedreason-${id}" value="">
     </div>`;
@@ -1554,6 +1561,10 @@ let recPayLoadPromise = null;
 // log once and computes both balances from the same snapshot.
 async function loadAutoRecPayables(force = false) {
   const branch = state.branch;
+  const recHeading = document.getElementById('receivables-heading');
+  const payHeading = document.getElementById('payables-heading');
+  if (recHeading) recHeading.textContent = `📥 Receivables — Owed to ${branch || 'selected branch'}`;
+  if (payHeading) payHeading.textContent = `📤 Payables — Owed by ${branch || 'selected branch'}`;
   const recList = document.getElementById('receivables-list');
   const payList = document.getElementById('payables-list');
   if (!branch || !recList || !payList) return;
@@ -1669,8 +1680,9 @@ function getEntries(type) {
     const amt = parseBankInput(`amt-${entryId}`);
     const settled = document.getElementById(`settled-${entryId}`)?.value === '1';
     const reason = document.getElementById(`savedreason-${entryId}`)?.value || '';
+    const phpEquivalent = Number(document.getElementById(`phpeq-${entryId}`)?.value || 0);
     const manualLine = type === 'receivables' && recAuto.ok && div.dataset.auto !== '1' && !/^hive commission$/i.test(name);
-    if(name) entries.push({ name, cur, amt, settled, reason: manualLine ? (reason || 'Manual — not in cash log') : reason });
+    if(name) entries.push({ name, cur, amt, settled, phpEquivalent, reason: manualLine ? (reason || 'Manual — not in cash log') : reason });
   });
   return entries;
 }
@@ -1687,13 +1699,20 @@ function saveAllBalances() {
 }
 
 function formatRecPayForReport(type) {
-  const label = type === 'receivables' ? '📥 Receivables — Owed to PSulit' : '📤 Payables — Owed by PSulit';
+  const label = type === 'receivables'
+    ? `📥 Receivables — Owed to ${state.branch || 'selected branch'}`
+    : `📤 Payables — Owed by ${state.branch || 'selected branch'}`;
   const entries = getEntries(type);
   const active = entries.filter(e => !e.settled && e.amt > 0);
   if(active.length === 0) return '';
-  let lines = `${label}\n`;
+  let lines = `${label}
+`;
   active.forEach(e => {
-    lines += `${e.name} — ${e.cur === 'PHP' ? '₱' : e.cur + ' '}${e.amt.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}${e.reason ? ` (${e.reason})` : ''}\n`;
+    const amount = `${e.cur === 'PHP' ? '₱' : e.cur + ' '}${e.amt.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
+    const phpNote = e.cur !== 'PHP' && e.phpEquivalent > 0
+      ? ` (PHP equivalent ₱${e.phpEquivalent.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}; valuation only)` : '';
+    lines += `${e.name} — ${amount}${phpNote}${e.reason ? ` (${e.reason})` : ''}
+`;
   });
   return lines;
 }
@@ -1936,7 +1955,7 @@ function buildSummary() {
   }
 
   // Include bank balances, receivables, and payables in the final review summary.
-  const recPayLabels = {bank:"🏦 Bank Balances",receivables:"📥 Receivables — Owed to PSulit",payables:"📤 Payables — Owed by PSulit"};
+  const recPayLabels = {bank:"🏦 Bank Balances",receivables:`📥 Receivables — Owed to ${state.branch || 'selected branch'}`,payables:`📤 Payables — Owed by ${state.branch || 'selected branch'}`};
   ["bank","receivables","payables"].forEach(type => {
     const entries = getEntries(type);
     cs.innerHTML += '<div class="cur-summary-title" style="margin-top:12px">' + recPayLabels[type] + '</div>';
@@ -1945,7 +1964,8 @@ function buildSummary() {
       const amount = (entry.cur === "PHP" ? "₱" : (entry.cur || "") + " ") + Number(entry.amt || 0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});
       const status = entry.settled ? " · Settled" : "";
       const reason = entry.reason ? " · " + entry.reason : "";
-      cs.innerHTML += '<div class="cur-summary-row"><span>' + entry.name + status + reason + '</span><strong>' + amount + '</strong></div>';
+      const phpNote = entry.cur !== "PHP" && Number(entry.phpEquivalent || 0) > 0 ? ' <small style="color:#64748b">(PHP equivalent ₱' + Number(entry.phpEquivalent).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2}) + ' · valuation only)</small>' : '';
+      cs.innerHTML += '<div class="cur-summary-row"><span>' + entry.name + status + reason + phpNote + '</span><strong>' + amount + '</strong></div>';
     });
   });
   document.getElementById("declare-text").innerHTML=`I, <strong>${state.teller}</strong>, declare that I performed this cash count in full view of <strong>${state.cctvCam}</strong> at the time stated. The currencies and totals declared are accurate. I understand that any falsification is subject to disciplinary action under Psulit Money Changer's internal policy and applicable BSP regulations.`;

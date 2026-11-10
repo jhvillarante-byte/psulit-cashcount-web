@@ -200,8 +200,8 @@ function buildCashCountRows(message, branch) {
   let section = "";
   for (const line of lines) {
     if (/Bank Balances/i.test(line)) { section = "bank"; continue; }
-    if (/Receivables\s+—\s+Owed to PSulit/i.test(line)) { section = "receivable"; continue; }
-    if (/Payables\s+—\s+Owed by PSulit/i.test(line)) { section = "payable"; continue; }
+    if (/Receivables\s+—\s+Owed to\s+/i.test(line)) { section = "receivable"; continue; }
+    if (/Payables\s+—\s+Owed by\s+/i.test(line)) { section = "payable"; continue; }
     // The form writes "SCRATCH INVENTORY"; older reports used "SCRATCH IT — PHYSICAL COUNT".
     if (/SCRATCH INVENTORY|SCRATCH IT\s+—\s+PHYSICAL COUNT/i.test(line)) { section = "scratchPhysical"; continue; }
     if (/SCRATCH IT\s+—\s+WINNING CARDS COUNT/i.test(line)) { section = "scratchWinning"; continue; }
