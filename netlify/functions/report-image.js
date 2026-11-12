@@ -146,6 +146,16 @@ function parseReport(message) {
     scratch.rows.sort((a, b) => rowRank(a.label) - rowRank(b.label));
   }
 
+  // Same order on every report: currencies in a fixed order, receivables/payables by name.
+  const FX_ORDER = ["PHP","USD","EUR","GBP","JPY","CNY","HKD","SGD","AUD","CAD","CHF","KRW","SAR","AED","THB","MYR","NZD","BHD","KWD","JOD","QAR","IDR","VND","TWD","BND"];
+  const fxRank = (c) => { const i = FX_ORDER.indexOf(String(c || "").toUpperCase()); return i < 0 ? 999 : i; };
+  const fxSec = sections.find(s => s.name === "FOREX CASH");
+  if (fxSec) fxSec.rows.sort((a, b) => fxRank(a.label) - fxRank(b.label));
+  for (const nm of ["RECEIVABLES", "PAYABLES"]) {
+    const sec = sections.find(s => s.name === nm);
+    if (sec) sec.rows.sort((a, b) => String(a.label).localeCompare(String(b.label), undefined, { sensitivity: "base" }));
+  }
+
   const order = ["FOREX CASH", "OTHER BALANCES", "LOTTOMATIK", "BANK BALANCES", "RECEIVABLES", "PAYABLES", "SCRATCH", "REMAINING SCRATCH CARDS", "WINNING CARDS PRESENTED TODAY"];
   sections.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
 
@@ -167,6 +177,12 @@ function palette(name) {
   return map[name] || ["#17212E", "#A8B6C7"];
 }
 
+function starPts(cx, cy, R, r) {
+  const pts = [];
+  for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, d = i % 2 ? r : R; pts.push(`${(cx + d * Math.cos(a)).toFixed(2)},${(cy + d * Math.sin(a)).toFixed(2)}`); }
+  return pts.join(" ");
+}
+
 function flagSvg(code, x, y) {
   const c = String(code || "").toUpperCase();
   const w = 42, h = 28, r = 5;
@@ -177,17 +193,32 @@ function flagSvg(code, x, y) {
     case "JPY": return box(`<rect width="42" height="28" fill="#FFF"/><circle cx="21" cy="14" r="8" fill="#BC002D"/>`);
     case "EUR": return box(`<rect width="42" height="28" fill="#003399"/><circle cx="21" cy="14" r="7" fill="none" stroke="#FFCC00" stroke-width="2"/>`);
     case "GBP": return box(`<rect width="42" height="28" fill="#012169"/><path d="M0 0 L42 28 M42 0 L0 28" stroke="#FFF" stroke-width="6"/><path d="M0 0 L42 28 M42 0 L0 28" stroke="#C8102E" stroke-width="3"/><path d="M21 0V28M0 14H42" stroke="#FFF" stroke-width="8"/><path d="M21 0V28M0 14H42" stroke="#C8102E" stroke-width="4"/>`);
-    case "CAD": return box(`<rect width="42" height="28" fill="#FFF"/><rect width="9" height="28" fill="#D80621"/><rect x="33" width="9" height="28" fill="#D80621"/><circle cx="21" cy="14" r="5" fill="#D80621"/>`);
-    case "AUD": return box(`<rect width="42" height="28" fill="#012169"/><circle cx="31" cy="9" r="3" fill="#FFF"/><circle cx="28" cy="20" r="2.5" fill="#FFF"/>`);
+    case "CAD": return box(`<rect width="42" height="28" fill="#FFF"/><rect width="10" height="28" fill="#D80621"/><rect x="32" width="10" height="28" fill="#D80621"/><path d="M21 4 L23 9 L27 8 L25 13 L28 14 L24 17 L24 22 L22 21 L22 24 H20 V21 L18 22 V17 L14 14 L17 13 L15 8 L19 9 Z" fill="#D80621"/>`);
+    case "AUD": return box(`<rect width="42" height="28" fill="#012169"/><g clip-path="inset(0)"><rect width="21" height="14" fill="#012169"/><path d="M0 0 L21 14 M21 0 L0 14" stroke="#FFF" stroke-width="3"/><path d="M0 0 L21 14 M21 0 L0 14" stroke="#C8102E" stroke-width="1.4"/><path d="M10.5 0V14M0 7H21" stroke="#FFF" stroke-width="4.5"/><path d="M10.5 0V14M0 7H21" stroke="#C8102E" stroke-width="2.6"/></g><circle cx="31" cy="9" r="3" fill="#FFF"/><circle cx="28" cy="20" r="2.5" fill="#FFF"/>`);
     case "CHF": return box(`<rect width="42" height="28" fill="#D52B1E"/><rect x="18" y="6" width="6" height="16" fill="#FFF"/><rect x="13" y="11" width="16" height="6" fill="#FFF"/>`);
     case "SAR": return box(`<rect width="42" height="28" fill="#006C35"/><rect x="9" y="13" width="24" height="2" fill="#FFF"/><rect x="15" y="18" width="12" height="2" fill="#FFF"/>`);
     case "TWD": return box(`<rect width="42" height="28" fill="#FE0000"/><rect width="18" height="14" fill="#000095"/><circle cx="9" cy="7" r="3.5" fill="#FFF"/>`);
+    case "VND": return box(`<rect width="42" height="28" fill="#DA251D"/><polygon points="${starPts(21, 14.5, 9, 3.6)}" fill="#FFFF00"/>`);
+    case "KRW": return box(`<rect width="42" height="28" fill="#FFF"/><circle cx="21" cy="14" r="6.5" fill="#CD2E3A"/><path d="M14.5 14 a6.5 6.5 0 0 0 13 0 a3.25 3.25 0 0 0 -6.5 0 a3.25 3.25 0 0 1 -6.5 0 Z" fill="#0047A0"/><g fill="#000"><rect x="4" y="4" width="7" height="1.6" transform="rotate(-34 7 5)"/><rect x="4" y="7" width="7" height="1.6" transform="rotate(-34 7 5)"/><rect x="31" y="22" width="7" height="1.6" transform="rotate(-34 35 23)"/><rect x="31" y="19" width="7" height="1.6" transform="rotate(-34 35 23)"/><rect x="31" y="4" width="7" height="1.6" transform="rotate(34 35 5)"/><rect x="4" y="22" width="7" height="1.6" transform="rotate(34 7 23)"/></g>`);
+    case "HKD": return box(`<rect width="42" height="28" fill="#DE2910"/><g fill="#FFF"><circle cx="21" cy="9.5" r="3.2"/><circle cx="25.5" cy="12.8" r="3.2"/><circle cx="23.8" cy="18" r="3.2"/><circle cx="18.2" cy="18" r="3.2"/><circle cx="16.5" cy="12.8" r="3.2"/></g><circle cx="21" cy="14.5" r="2" fill="#DE2910"/>`);
+    case "CNY": return box(`<rect width="42" height="28" fill="#DE2910"/><polygon points="${starPts(8, 8, 5, 2)}" fill="#FFDE00"/><polygon points="${starPts(16, 3.5, 1.6, .7)}" fill="#FFDE00"/><polygon points="${starPts(19, 7, 1.6, .7)}" fill="#FFDE00"/><polygon points="${starPts(19, 12, 1.6, .7)}" fill="#FFDE00"/><polygon points="${starPts(16, 15.5, 1.6, .7)}" fill="#FFDE00"/>`);
+    case "SGD": return box(`<rect width="42" height="14" fill="#EF3340"/><rect y="14" width="42" height="14" fill="#FFF"/><circle cx="9" cy="7" r="5" fill="#FFF"/><circle cx="11" cy="7" r="4.5" fill="#EF3340"/><polygon points="${starPts(15, 4.5, 1.4, .6)}" fill="#FFF"/><polygon points="${starPts(17.5, 6.8, 1.4, .6)}" fill="#FFF"/><polygon points="${starPts(16.5, 9.8, 1.4, .6)}" fill="#FFF"/><polygon points="${starPts(13.3, 9.8, 1.4, .6)}" fill="#FFF"/><polygon points="${starPts(12.5, 6.8, 1.4, .6)}" fill="#FFF"/>`);
+    case "MYR": return box(`<rect width="42" height="28" fill="#FFF"/><g fill="#CC0001"><rect y="0" width="42" height="4"/><rect y="8" width="42" height="4"/><rect y="16" width="42" height="4"/><rect y="24" width="42" height="4"/></g><rect width="21" height="16" fill="#010066"/><circle cx="8" cy="8" r="4.5" fill="#FC0"/><circle cx="9.3" cy="8" r="3.7" fill="#010066"/><polygon points="${starPts(13.5, 8, 3, 1.3)}" fill="#FC0"/>`);
+    case "AED": return box(`<rect width="42" height="28" fill="#FFF"/><rect x="10" width="32" height="9.4" fill="#00732F"/><rect x="10" y="18.6" width="32" height="9.4" fill="#000"/><rect width="10" height="28" fill="#FF0000"/>`);
+    case "THB": return box(`<rect width="42" height="28" fill="#A51931"/><rect y="4.7" width="42" height="18.6" fill="#F4F5F8"/><rect y="9.3" width="42" height="9.4" fill="#2D2A4A"/>`);
+    case "NZD": return box(`<rect width="42" height="28" fill="#012169"/><g clip-path="inset(0)"><rect width="21" height="14" fill="#012169"/><path d="M0 0 L21 14 M21 0 L0 14" stroke="#FFF" stroke-width="3"/><path d="M0 0 L21 14 M21 0 L0 14" stroke="#C8102E" stroke-width="1.4"/><path d="M10.5 0V14M0 7H21" stroke="#FFF" stroke-width="4.5"/><path d="M10.5 0V14M0 7H21" stroke="#C8102E" stroke-width="2.6"/></g><g fill="#CC142B"><circle cx="31" cy="8" r="2"/><circle cx="35" cy="14" r="2"/><circle cx="31" cy="21" r="2"/><circle cx="27" cy="13" r="2"/></g>`);
+    case "KWD": return box(`<rect width="42" height="9.4" fill="#007A3D"/><rect y="9.4" width="42" height="9.3" fill="#FFF"/><rect y="18.7" width="42" height="9.3" fill="#CE1126"/><polygon points="0,0 12,9.4 12,18.7 0,28" fill="#000"/>`);
+    case "BHD": return box(`<rect width="42" height="28" fill="#CE1126"/><polygon points="0,0 14,0 18,2.8 14,5.6 18,8.4 14,11.2 18,14 14,16.8 18,19.6 14,22.4 18,25.2 14,28 0,28" fill="#FFF"/>`);
+    case "QAR": return box(`<rect width="42" height="28" fill="#8A1538"/><polygon points="0,0 14,0 18,2.8 14,5.6 18,8.4 14,11.2 18,14 14,16.8 18,19.6 14,22.4 18,25.2 14,28 0,28" fill="#FFF"/>`);
+    case "JOD": return box(`<rect width="42" height="9.4" fill="#000"/><rect y="9.4" width="42" height="9.3" fill="#FFF"/><rect y="18.7" width="42" height="9.3" fill="#007A3D"/><polygon points="0,0 21,14 0,28" fill="#CE1126"/><polygon points="${starPts(7, 14, 3, 1.3)}" fill="#FFF"/>`);
     case "IDR": return box(`<rect width="42" height="14" fill="#FF0000"/><rect y="14" width="42" height="14" fill="#FFF"/>`);
     default: return box(`<rect width="42" height="28" fill="#253241"/><text x="21" y="19" text-anchor="middle" font-size="12" font-weight="700" fill="#EAF1F8">${esc(c.slice(0,3))}</text>`);
   }
 }
 
 function rowSvg(sectionName, x, y, label, value, width) {
+  const noEmoji = (t) => String(t == null ? "" : t).replace(/[\u{1F1E6}-\u{1F1FF}\u{1F300}-\u{1FAFF}\u{2600}-\u{27BF}\u{FE0F}]/gu, "").replace(/\s{2,}/g, " ").trim();
+  label = noEmoji(label); value = noEmoji(value);
   const rightX = x + width;
   if (sectionName === "FOREX CASH") {
     const code = String(label || "").trim().toUpperCase().split(/\s+/)[0];
