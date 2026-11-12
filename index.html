@@ -1703,7 +1703,7 @@ function formatRecPayForReport(type) {
     ? `📥 Receivables — Owed to ${state.branch || 'selected branch'}`
     : `📤 Payables — Owed by ${state.branch || 'selected branch'}`;
   const entries = getEntries(type);
-  const active = entries.filter(e => !e.settled && e.amt > 0);
+  const active = entries.filter(e => !e.settled && e.amt > 0).sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' }));
   if(active.length === 0) return '';
   let lines = `${label}
 `;
@@ -2008,7 +2008,9 @@ ${line}
   // Foreign currencies + Grand Total
   let ocTotal = 0;
   let hasOC = false;
-  state.activeCurrencies.forEach(code => {
+  // Always the same currency order in the report, not the order the teller happened to add them.
+  const fxRank = (c) => { const i = CURRENCIES_SHORT.indexOf(c); return i < 0 ? 999 : i; };
+  [...state.activeCurrencies].sort((a, b) => fxRank(a) - fxRank(b) || String(a).localeCompare(String(b))).forEach(code => {
     if(code === "PHP") return;
     const cur = CURRENCIES.find(c => c.code === code);
     const total = getTotal(code);
