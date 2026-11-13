@@ -115,6 +115,24 @@ function parseReport(message) {
     }
   }
 
+  // Hive cash is Moneybees' money held by the branch, so the report shows it under PAYABLES as "Hive/MB".
+  // Display only: the teller still counts it by denomination, and the submitted message and the sheet rows
+  // stay "Hive" / Fund Balance, so the cash log and the audit read it exactly as before.
+  const otherForHive = sections.find(s => s.name === "OTHER BALANCES");
+  if (otherForHive) {
+    const hiveRows = otherForHive.rows.filter(r => /^hive\b/i.test(String(r.label || "").trim()));
+    if (hiveRows.length) {
+      otherForHive.rows = otherForHive.rows.filter(r => !/^hive\b/i.test(String(r.label || "").trim()));
+      let pay = sections.find(s => s.name === "PAYABLES");
+      if (!pay) { pay = { name: "PAYABLES", rows: [] }; sections.push(pay); }
+      pay.hive = hiveRows.map(r => {
+        const v = String(r.value || "").replace(/[\u{1F1E6}-\u{1F1FF}]/gu, "").trim();
+        const php = /^PHP\s*[—-]\s*/i.test(v);
+        return { label: "Hive/MB" + (php || !/^[A-Z]{3}\s*[—-]/.test(v) ? "" : " (" + v.slice(0, 3) + ")"), value: php ? v.replace(/^PHP\s*[—-]\s*/i, "") : v.replace(/^[A-Z]{3}\s*[—-]\s*/, "") };
+      });
+    }
+  }
+
   // Thermal rolls belong under LottoMatik, even though the Cash Count
   // submission currently places the line after the Scratch physical count.
   const scratchForThermal = sections.find(s => s.name === "SCRATCH");
@@ -155,6 +173,7 @@ function parseReport(message) {
     const sec = sections.find(s => s.name === nm);
     if (sec) sec.rows.sort((a, b) => String(a.label).localeCompare(String(b.label), undefined, { sensitivity: "base" }));
   }
+  { const pay = sections.find(s => s.name === "PAYABLES"); if (pay && pay.hive) { pay.rows = [...pay.hive, ...pay.rows]; delete pay.hive; } }  // Hive/MB first
 
   const order = ["FOREX CASH", "OTHER BALANCES", "LOTTOMATIK", "BANK BALANCES", "RECEIVABLES", "PAYABLES", "SCRATCH", "REMAINING SCRATCH CARDS", "WINNING CARDS PRESENTED TODAY"];
   sections.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
