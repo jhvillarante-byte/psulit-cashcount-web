@@ -289,7 +289,7 @@
         <button id="other-btn-hive" class="cur-btn" onclick="toggleOther('hive',this)" style="position:relative;">
           <span class="cur-check">✓</span>
           <div style="width:40px;height:40px;display:flex;align-items:center;justify-content:center;background:#f0a500;border-radius:8px;font-size:22px;">🐝</div>
-          <span style="font-size:11px;font-weight:700;color:#374151">Hive</span>
+          <span style="font-size:11px;font-weight:700;color:#374151">Hive/MB</span>
         </button>
         <button id="other-btn-juanpay" class="cur-btn" onclick="toggleOther('juanpay',this)" style="position:relative;">
           <span class="cur-check">✓</span>
@@ -1020,7 +1020,7 @@ function buildHiveDenomSections() {
     const div = document.createElement("div");
     div.className = "denom-section" + (code === hiveCurrency ? " active" : "");
     div.id = "hive-denom-sec-" + code;
-    let html = `<div class="denom-table"><div class="denom-header"><span>🐝 HIVE (${cur.code})</span><span>QTY (PCS)</span><span>SUBTOTAL</span></div>`;
+    let html = `<div class="denom-table"><div class="denom-header"><span>🐝 HIVE/MB (${cur.code})</span><span>QTY (PCS)</span><span>SUBTOTAL</span></div>`;
     cur.denoms.forEach(d => {
       const key = hiveDenomKey(d.v);
       const qty = hiveCounts[code][key] || 0;
@@ -1915,7 +1915,7 @@ function buildSummary() {
   if(isOtherSelected("hive")) {
     const hiveBalances = getHiveReportLines();
     if(hiveBalances.length > 0) {
-      cs.innerHTML += `<div class="cur-summary-title" style="margin-top:10px">🐝 Hive</div>`;
+      cs.innerHTML += `<div class="cur-summary-title" style="margin-top:10px">🐝 Hive/MB (payable)</div>`;
       hiveBalances.forEach(({cur,total}) => {
         cs.innerHTML += `<div class="cur-summary-row"><span>${cur.flag} ${cur.code}</span><strong style="color:#1e3a5f;font-size:16px">${fmt(cur.code,total)}</strong></div>`;
       });
