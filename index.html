@@ -981,7 +981,9 @@ function getHiveCurrencyTotal(code) {
 function buildHiveCurrencyGrid() {
   const grid = document.getElementById("hive-cur-grid");
   if(!grid || grid.children.length) return;
-  CURRENCIES.forEach(cur => {
+  // Hive/MB is PHP only: foreign currency belongs in the Forex drawer, never in Hive.
+  const fg = grid.closest(".field-group"); if(fg) fg.style.display = "none";
+  CURRENCIES.filter(cur => cur.code === "PHP").forEach(cur => {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "cur-btn" + (hiveActiveCurrencies.includes(cur.code) ? " selected" : "");
@@ -1094,7 +1096,7 @@ function updateHiveAllCurSummary() {
 }
 function getHiveReportLines(includeZero = false) {
   saveHiveCurrencyInputs();
-  return CURRENCIES.map(cur => ({cur,total:getHiveCurrencyTotal(cur.code)})).filter(x => includeZero || x.total > 0);
+  return CURRENCIES.filter(cur => cur.code === "PHP").map(cur => ({cur,total:getHiveCurrencyTotal(cur.code)})).filter(x => includeZero || x.total > 0);
 }
 
 function calcOtherTotal(itemId) {
