@@ -311,8 +311,10 @@
       <div class="tab-row" id="other-tab-row" style="display:none"></div>
       <div id="other-section-hive" class="denom-section">
         <div class="field-group">
-          <label class="field-label">Currencies on Hand</label>
-          <div class="cur-grid" id="hive-cur-grid"></div>
+          <label class="field-label">Hive/MB currencies</label>
+          <div style="font-size:12px;color:#64748b;margin:2px 0 8px;">PHP is counted below. Only add another currency if Hive/MB itself holds it — drawer cash goes in the Forex drawer, not here.</div>
+          <select id="hive-add-cur" onchange="addHiveCurrencyFromSelect(this)" style="width:100%;padding:10px 12px;border-radius:8px;border:1.5px solid #e2e8f0;font-size:15px;background:#fff;color:#374151"></select>
+          <div class="cur-grid" id="hive-cur-grid" style="display:none"></div>
         </div>
         <div class="tab-row" id="hive-tab-row"></div>
         <div id="hive-denom-sections"></div>
@@ -981,9 +983,7 @@ function getHiveCurrencyTotal(code) {
 function buildHiveCurrencyGrid() {
   const grid = document.getElementById("hive-cur-grid");
   if(!grid || grid.children.length) return;
-  // Hive/MB is PHP only: foreign currency belongs in the Forex drawer, never in Hive.
-  const fg = grid.closest(".field-group"); if(fg) fg.style.display = "none";
-  CURRENCIES.filter(cur => cur.code === "PHP").forEach(cur => {
+  CURRENCIES.forEach(cur => {
     const btn = document.createElement("button");
     btn.type = "button";
     btn.className = "cur-btn" + (hiveActiveCurrencies.includes(cur.code) ? " selected" : "");
@@ -995,6 +995,22 @@ function buildHiveCurrencyGrid() {
   buildHiveDenomSections();
   buildHiveTabs();
   updateHiveAllCurSummary();
+  refreshHiveAddSelect();
+}
+// Hive/MB: other currencies are added from a dropdown (not a flag grid that looks like the Forex drawer).
+function refreshHiveAddSelect() {
+  const sel = document.getElementById("hive-add-cur");
+  if(!sel) return;
+  const opts = CURRENCIES.filter(c => !hiveActiveCurrencies.includes(c.code));
+  sel.innerHTML = `<option value="">+ Add another currency to Hive/MB…</option>` + opts.map(c => `<option value="${c.code}">${c.flag} ${c.code}${c.name ? " — " + c.name : ""}</option>`).join("");
+  sel.value = "";
+}
+function addHiveCurrencyFromSelect(sel) {
+  const code = sel && sel.value;
+  if(!code) return;
+  const btn = document.getElementById("hive-cur-btn-" + code);
+  if(btn && !hiveActiveCurrencies.includes(code)) toggleHiveCurrency(code, btn);
+  refreshHiveAddSelect();
 }
 function toggleHiveCurrency(code, btn) {
   saveHiveCurrencyInputs();
@@ -1096,7 +1112,7 @@ function updateHiveAllCurSummary() {
 }
 function getHiveReportLines(includeZero = false) {
   saveHiveCurrencyInputs();
-  return CURRENCIES.filter(cur => cur.code === "PHP").map(cur => ({cur,total:getHiveCurrencyTotal(cur.code)})).filter(x => includeZero || x.total > 0);
+  return CURRENCIES.map(cur => ({cur,total:getHiveCurrencyTotal(cur.code)})).filter(x => includeZero || x.total > 0);
 }
 
 function calcOtherTotal(itemId) {
