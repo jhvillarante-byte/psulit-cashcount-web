@@ -180,15 +180,18 @@ function parseReport(message) {
       pay.rows = pay.rows.map(r => (/^(hive|moneybees|mb)\b/i.test(String(r.label || "").trim()) && !/^hive\/mb$/i.test(String(r.label || "").trim()))
         ? { ...r, label: "Hive/MB — borrowed by Forex" } : r);
       if (pay.hive) { pay.rows = [...pay.hive, ...pay.rows]; delete pay.hive; }   // counted Hive/MB first
-      // Both parts of Hive's money (still in the envelope + lent to Forex): show them together, then the total owed to Hive.
+      // Hive/MB's whole fund on one line, with where it is underneath (small text):
+      //   Hive/MB — total fund            ₱549,858.35
+      //     Borrowed by Forex: ₱549,000.00 · Remaining in Hive: ₱858.35
       const num = v => { const m = /^₱\s*([\d,]+(?:\.\d+)?)$/.exec(String(v || "").trim()); return m ? Number(m[1].replace(/,/g, "")) : null; };
+      const peso = n => "₱" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const inEnv = pay.rows.find(r => /^hive\/mb$/i.test(String(r.label || "").trim()));
       const lent = pay.rows.filter(r => /borrowed by forex/i.test(String(r.label || "")));
-      if (inEnv && lent.length && num(inEnv.value) !== null && lent.every(r => num(r.value) !== null)) {
-        inEnv.label = "Hive/MB — in the Hive envelope";
+      if (lent.length && lent.every(r => num(r.value) !== null) && (!inEnv || num(inEnv.value) !== null)) {
+        const lentAmt = lent.reduce((t, r) => t + num(r.value), 0), left = inEnv ? num(inEnv.value) : 0;
         const others = pay.rows.filter(r => r !== inEnv && !lent.includes(r));
-        const total = num(inEnv.value) + lent.reduce((t, r) => t + num(r.value), 0);
-        pay.rows = [inEnv, ...lent, { label: "Hive/MB — total owed to Hive", value: "₱" + total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }, ...others];
+        pay.rows = [{ label: "Hive/MB — total fund", value: peso(lentAmt + left),
+          sub: [`Borrowed by Forex: ${peso(lentAmt)}`, `Remaining in Hive: ${peso(left)}${inEnv ? "" : " (not counted)"}`] }, ...others];
       }
     }
   }
@@ -267,7 +270,8 @@ function rowSvg(sectionName, x, y, label, value, width) {
 function renderSvg(data) {
   const width = 1000, margin = 52, cardW = width - margin * 2, rowH = 48, sectionHeaderH = 60;
   let contentH = 390;
-  for (const s of data.sections) if (s.rows.length) contentH += sectionHeaderH + 28 + s.rows.length * rowH + 26;
+  const subH = 30;
+  for (const s of data.sections) if (s.rows.length) contentH += sectionHeaderH + 28 + s.rows.length * rowH + s.rows.reduce((t, r) => t + (Array.isArray(r.sub) ? r.sub.length : 0), 0) * subH + 26;
   contentH += 230;
   const height = Math.max(1260, contentH + 100);
   let y = 48, body = "";
@@ -302,6 +306,10 @@ function renderSvg(data) {
     y += sectionHeaderH + 28;
     for (const row of section.rows) {
       body += rowSvg(section.name, margin + 52, y, row.label, row.value, cardW - 104);
+      for (const line of (Array.isArray(row.sub) ? row.sub : [])) {
+        y += subH;
+        body += `<text x="${margin + 76}" y="${y}" font-size="19" font-weight="400" fill="#8FA0B3">${esc(line)}</text>`;
+      }
       y += rowH;
     }
     y += 16;
