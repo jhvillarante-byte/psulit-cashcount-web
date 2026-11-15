@@ -180,6 +180,16 @@ function parseReport(message) {
       pay.rows = pay.rows.map(r => (/^(hive|moneybees|mb)\b/i.test(String(r.label || "").trim()) && !/^hive\/mb$/i.test(String(r.label || "").trim()))
         ? { ...r, label: "Hive/MB — borrowed by Forex" } : r);
       if (pay.hive) { pay.rows = [...pay.hive, ...pay.rows]; delete pay.hive; }   // counted Hive/MB first
+      // Both parts of Hive's money (still in the envelope + lent to Forex): show them together, then the total owed to Hive.
+      const num = v => { const m = /^₱\s*([\d,]+(?:\.\d+)?)$/.exec(String(v || "").trim()); return m ? Number(m[1].replace(/,/g, "")) : null; };
+      const inEnv = pay.rows.find(r => /^hive\/mb$/i.test(String(r.label || "").trim()));
+      const lent = pay.rows.filter(r => /borrowed by forex/i.test(String(r.label || "")));
+      if (inEnv && lent.length && num(inEnv.value) !== null && lent.every(r => num(r.value) !== null)) {
+        inEnv.label = "Hive/MB — in the Hive envelope";
+        const others = pay.rows.filter(r => r !== inEnv && !lent.includes(r));
+        const total = num(inEnv.value) + lent.reduce((t, r) => t + num(r.value), 0);
+        pay.rows = [inEnv, ...lent, { label: "Hive/MB — total owed to Hive", value: "₱" + total.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }, ...others];
+      }
     }
   }
 
