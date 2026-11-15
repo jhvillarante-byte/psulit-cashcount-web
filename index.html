@@ -584,6 +584,7 @@ function select(field, val, btn) {
 }
 
 function goTo(n) {
+  try { refreshHiveFundCards(); } catch(e) {}
   document.querySelectorAll(".section").forEach(s=>s.classList.remove("active"));
   document.getElementById("step-"+n).classList.add("active");
   const visibleSteps = [1,3,4,6,7,5];
@@ -1530,6 +1531,18 @@ function setPayStatus(kind, info) {
   }
 }
 
+function refreshHiveFundCards() {
+  const cards = document.querySelectorAll('[data-hivelent]');
+  if(!cards.length) return;
+  let left = 0;
+  try { left = isOtherSelected('hive') ? getHiveCurrencyTotal('PHP') : 0; } catch(e) { left = 0; }
+  cards.forEach(card => {
+    const lent = Number(card.dataset.hivelent) || 0;
+    const t = card.querySelector('.hive-total'), l = card.querySelector('.hive-left');
+    if(t) t.textContent = fmtAmt(lent + left, 'PHP');
+    if(l) l.textContent = isOtherSelected('hive') ? fmtAmt(left, 'PHP') : '₱0.00 (Hive/MB not counted in Others)';
+  });
+}
 function makeAutoEntryHTML(id, entry) {
   const amt = Number(entry.amount) || 0;
   const currency = String(entry.currency || 'PHP').toUpperCase();
@@ -1541,14 +1554,16 @@ function makeAutoEntryHTML(id, entry) {
   const last = entry.lastActivity ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">Last activity ${recEsc(entry.lastActivity)}</div>` : '';
   // A "Hive" payable from the cash log is Hive/MB money the Forex drawer borrowed (owed back to Hive).
   const hiveLent = /^payables-/.test(String(id)) && /^(hive|moneybees|mb)\b/i.test(String(entry.name || '').trim());
-  const shownName = hiveLent ? 'Hive/MB — borrowed by Forex' : entry.name;
-  const hiveNote = hiveLent ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">Hive money now in the Forex drawer — owed back to Hive</div>` : '';
+  // Shown as the whole Hive/MB fund, with the borrowed part and the counted Hive envelope underneath
+  // (the envelope amount is filled in from the Hive/MB count in Others — refreshHiveFundCards()).
+  const shownName = hiveLent ? 'Hive/MB — total fund' : entry.name;
+  const hiveNote = hiveLent ? `<div style="font-size:12px;color:#475569;margin-top:3px;">Borrowed by Forex: ${amountLabel}</div><div style="font-size:12px;color:#475569;">Remaining in Hive: <span class="hive-left">—</span></div>` : '';
   return `
-    <div id="entry-${id}" data-locked="1" data-auto="1" style="background:#f0fdf4;border-radius:10px;padding:12px;margin-bottom:10px;border:1.5px solid #bbf7d0;">
+    <div id="entry-${id}" data-locked="1" data-auto="1"${hiveLent ? ` data-hivelent="${amt}"` : ''} style="background:#f0fdf4;border-radius:10px;padding:12px;margin-bottom:10px;border:1.5px solid #bbf7d0;">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
         <div>
           <div style="font-weight:700;font-size:14px;color:#1e3a5f;">${recEsc(shownName)}</div>
-          <div style="font-size:15px;color:#16a34a;font-weight:700;margin-top:2px;">${amountLabel}</div>
+          <div style="font-size:15px;color:#16a34a;font-weight:700;margin-top:2px;"${hiveLent ? ' class="hive-total"' : ''}>${amountLabel}</div>
           ${hiveNote}
           ${equivalent}
           ${last}
@@ -1576,6 +1591,7 @@ function addAutoPayable(entry) {
   const div = document.createElement('div');
   div.innerHTML = makeAutoEntryHTML(id, entry);
   document.getElementById('payables-list').appendChild(div.firstElementChild);
+  try { refreshHiveFundCards(); } catch(e) {}
 }
 
 let recPayLoadPromise = null;
