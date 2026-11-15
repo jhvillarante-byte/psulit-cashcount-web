@@ -173,7 +173,15 @@ function parseReport(message) {
     const sec = sections.find(s => s.name === nm);
     if (sec) sec.rows.sort((a, b) => String(a.label).localeCompare(String(b.label), undefined, { sensitivity: "base" }));
   }
-  { const pay = sections.find(s => s.name === "PAYABLES"); if (pay && pay.hive) { pay.rows = [...pay.hive, ...pay.rows]; delete pay.hive; } }  // Hive/MB first
+  {
+    const pay = sections.find(s => s.name === "PAYABLES");
+    if (pay) {
+      // A "Hive" payable from the cash log is Hive/MB money the Forex drawer borrowed (owed back to Hive).
+      pay.rows = pay.rows.map(r => (/^(hive|moneybees|mb)\b/i.test(String(r.label || "").trim()) && !/^hive\/mb$/i.test(String(r.label || "").trim()))
+        ? { ...r, label: "Hive/MB — borrowed by Forex" } : r);
+      if (pay.hive) { pay.rows = [...pay.hive, ...pay.rows]; delete pay.hive; }   // counted Hive/MB first
+    }
+  }
 
   const order = ["FOREX CASH", "OTHER BALANCES", "LOTTOMATIK", "BANK BALANCES", "RECEIVABLES", "PAYABLES", "SCRATCH", "REMAINING SCRATCH CARDS", "WINNING CARDS PRESENTED TODAY"];
   sections.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
