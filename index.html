@@ -1540,7 +1540,7 @@ function refreshHiveFundCards() {
     const lent = Number(card.dataset.hivelent) || 0;
     const t = card.querySelector('.hive-total'), l = card.querySelector('.hive-left');
     if(t) t.textContent = fmtAmt(lent + left, 'PHP');
-    if(l) l.textContent = isOtherSelected('hive') ? fmtAmt(left, 'PHP') : '₱0.00 (Hive/MB not counted in Others)';
+    if(l) l.textContent = isOtherSelected('hive') ? fmtAmt(left, 'PHP') : fmtAmt(0, 'PHP');
   });
 }
 function makeAutoEntryHTML(id, entry) {
