@@ -182,7 +182,7 @@ function parseReport(message) {
       if (pay.hive) { pay.rows = [...pay.hive, ...pay.rows]; delete pay.hive; }   // counted Hive/MB first
       // Hive/MB's whole fund on one line, with where it is underneath (small text):
       //   Hive/MB — total fund            ₱549,858.35
-      //     Borrowed by Forex: ₱549,000.00 · Remaining in Hive: ₱858.35
+      //     Borrowed by Forex: ₱549,000.00 · Cash on hand: ₱858.35
       const num = v => { const m = /^₱\s*([\d,]+(?:\.\d+)?)$/.exec(String(v || "").trim()); return m ? Number(m[1].replace(/,/g, "")) : null; };
       const peso = n => "₱" + n.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
       const inEnv = pay.rows.find(r => /^hive\/mb$/i.test(String(r.label || "").trim()));
@@ -191,7 +191,7 @@ function parseReport(message) {
         const lentAmt = lent.reduce((t, r) => t + num(r.value), 0), left = inEnv ? num(inEnv.value) : 0;
         const others = pay.rows.filter(r => r !== inEnv && !lent.includes(r));
         pay.rows = [{ label: "Hive/MB — total fund", value: peso(lentAmt + left),
-          sub: [`Borrowed by Forex: ${peso(lentAmt)}`, `Remaining in Hive: ${peso(left)}${inEnv ? "" : " (not counted)"}`] }, ...others];
+          sub: [`Borrowed by Forex: ${peso(lentAmt)}`, `Cash on hand: ${peso(left)}`] }, ...others];
       }
     }
   }
