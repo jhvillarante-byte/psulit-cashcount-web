@@ -1557,7 +1557,7 @@ function makeAutoEntryHTML(id, entry) {
   // Shown as the whole Hive/MB fund, with the borrowed part and the counted Hive envelope underneath
   // (the envelope amount is filled in from the Hive/MB count in Others — refreshHiveFundCards()).
   const shownName = hiveLent ? 'Hive/MB — total fund' : entry.name;
-  const hiveNote = hiveLent ? `<div style="font-size:12px;color:#475569;margin-top:3px;">Borrowed by Forex: ${amountLabel}</div><div style="font-size:12px;color:#475569;">Remaining in Hive: <span class="hive-left">—</span></div>` : '';
+  const hiveNote = hiveLent ? `<div style="font-size:12px;color:#475569;margin-top:3px;">Borrowed by Forex: ${amountLabel}</div><div style="font-size:12px;color:#475569;">Cash on hand: <span class="hive-left">—</span></div>` : '';
   return `
     <div id="entry-${id}" data-locked="1" data-auto="1"${hiveLent ? ` data-hivelent="${amt}"` : ''} style="background:#f0fdf4;border-radius:10px;padding:12px;margin-bottom:10px;border:1.5px solid #bbf7d0;">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
