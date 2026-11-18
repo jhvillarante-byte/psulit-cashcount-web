@@ -1552,6 +1552,10 @@ function makeAutoEntryHTML(id, entry) {
     ? `<div style="font-size:11px;color:#64748b;margin-top:3px;">PHP equivalent ₱${Number(entry.phpEquivalent).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})} · valuation only</div>`
     : '';
   const last = entry.lastActivity ? `<div style="font-size:11px;color:#64748b;margin-top:2px;">Last activity ${recEsc(entry.lastActivity)}</div>` : '';
+  // Small line: which PSulit fund owes this payable (from the Audit Reader), e.g. "Owed by LottoMatik".
+  const owedByList = Array.isArray(entry.owedBy) ? entry.owedBy.filter(o => o && o.fund) : [];
+  const owedBy = owedByList.length && !/^(hive|moneybees|mb)\b/i.test(String(entry.name || '').trim())
+    ? `<div class="owed-by" style="font-size:11px;color:#64748b;margin-top:1px;">Owed by ${owedByList.map(o => recEsc(o.fund) + (owedByList.length > 1 ? ' ' + fmtAmt(Number(o.amount) || 0, 'PHP') : '')).join(' · ')}</div>` : '';
   // A "Hive" payable from the cash log is Hive/MB money the Forex drawer borrowed (owed back to Hive).
   const hiveLent = /^payables-/.test(String(id)) && /^(hive|moneybees|mb)\b/i.test(String(entry.name || '').trim());
   // Shown as the whole Hive/MB fund, with the borrowed part and the counted Hive envelope underneath
@@ -1564,6 +1568,7 @@ function makeAutoEntryHTML(id, entry) {
         <div>
           <div style="font-weight:700;font-size:14px;color:#1e3a5f;">${recEsc(shownName)}</div>
           <div style="font-size:15px;color:#16a34a;font-weight:700;margin-top:2px;"${hiveLent ? ' class="hive-total"' : ''}>${amountLabel}</div>
+          ${owedBy}
           ${hiveNote}
           ${equivalent}
           ${last}
@@ -1571,6 +1576,7 @@ function makeAutoEntryHTML(id, entry) {
         <span style="font-size:11px;font-weight:800;color:#15803d;background:#dcfce7;border-radius:6px;padding:4px 8px;white-space:nowrap;">FROM CASH LOG</span>
       </div>
       <input type="hidden" id="name-${id}" value="${recEsc(entry.name)}">
+      <input type="hidden" id="owedby-${id}" value="${recEsc(owedByList.map(o => o.fund).join(', '))}">
       <input type="hidden" id="cur-${id}" value="${recEsc(currency)}">
       <input type="hidden" id="amt-${id}" value="${amtText}">
       <input type="hidden" id="phpeq-${id}" value="${Number(entry.phpEquivalent) > 0 ? Number(entry.phpEquivalent) : ''}">
@@ -1721,7 +1727,8 @@ function getEntries(type) {
     const reason = document.getElementById(`savedreason-${entryId}`)?.value || '';
     const phpEquivalent = Number(document.getElementById(`phpeq-${entryId}`)?.value || 0);
     const manualLine = type === 'receivables' && recAuto.ok && div.dataset.auto !== '1' && !/^hive commission$/i.test(name);
-    if(name) entries.push({ name, cur, amt, settled, phpEquivalent, reason: manualLine ? (reason || 'Manual — not in cash log') : reason });
+    const owedBy = document.getElementById(`owedby-${entryId}`)?.value || '';
+    if(name) entries.push({ name, cur, amt, settled, phpEquivalent, owedBy, reason: manualLine ? (reason || 'Manual — not in cash log') : reason });
   });
   return entries;
 }
@@ -1750,7 +1757,8 @@ function formatRecPayForReport(type) {
     const amount = `${e.cur === 'PHP' ? '₱' : e.cur + ' '}${e.amt.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}`;
     const phpNote = e.cur !== 'PHP' && e.phpEquivalent > 0
       ? ` (PHP equivalent ₱${e.phpEquivalent.toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}; valuation only)` : '';
-    lines += `${e.name} — ${amount}${phpNote}${e.reason ? ` (${e.reason})` : ''}
+    const owed = type === 'payables' && e.owedBy ? ` (owed by ${e.owedBy})` : '';
+    lines += `${e.name} — ${amount}${phpNote}${owed}${e.reason ? ` (${e.reason})` : ''}
 `;
   });
   return lines;
