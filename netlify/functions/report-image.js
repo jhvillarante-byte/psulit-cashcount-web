@@ -176,6 +176,11 @@ function parseReport(message) {
   {
     const pay = sections.find(s => s.name === "PAYABLES");
     if (pay) {
+      // "Scratch — ₱3,000.00 (owed by LottoMatik)" → the amount, with "Owed by LottoMatik" in small text underneath.
+      pay.rows = pay.rows.map(r => {
+        const m = /\s*\(owed by ([^)]+)\)/i.exec(String(r.value || ""));
+        return m ? { ...r, value: String(r.value).replace(m[0], "").trim(), sub: [...(r.sub || []), `Owed by ${m[1].trim()}`] } : r;
+      });
       // A "Hive" payable from the cash log is Hive/MB money the Forex drawer borrowed (owed back to Hive).
       pay.rows = pay.rows.map(r => (/^(hive|moneybees|mb)\b/i.test(String(r.label || "").trim()) && !/^hive\/mb$/i.test(String(r.label || "").trim()))
         ? { ...r, label: "Hive/MB — borrowed by Forex" } : r);
