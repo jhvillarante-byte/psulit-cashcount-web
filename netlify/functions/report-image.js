@@ -174,6 +174,14 @@ function parseReport(message) {
     if (sec) sec.rows.sort((a, b) => String(a.label).localeCompare(String(b.label), undefined, { sensitivity: "base" }));
   }
   {
+    // "LottoMatik/Joan (jammed ticket)" → the name, with "Jammed ticket" in small text underneath.
+    const rec = sections.find(s => s.name === "RECEIVABLES");
+    if (rec) rec.rows = rec.rows.map(r => {
+      const m = /^(.*?)\s*\((jammed ticket)\)\s*$/i.exec(String(r.label || ""));
+      return m ? { ...r, label: m[1].trim(), sub: [...(r.sub || []), "Jammed ticket"] } : r;
+    });
+  }
+  {
     const pay = sections.find(s => s.name === "PAYABLES");
     if (pay) {
       // "Scratch — ₱3,000.00 (owed by LottoMatik)" → the amount, with "Owed by LottoMatik" in small text underneath.

@@ -1566,7 +1566,7 @@ function makeAutoEntryHTML(id, entry) {
     <div id="entry-${id}" data-locked="1" data-auto="1"${hiveLent ? ` data-hivelent="${amt}"` : ''} style="background:#f0fdf4;border-radius:10px;padding:12px;margin-bottom:10px;border:1.5px solid #bbf7d0;">
       <div style="display:flex;justify-content:space-between;align-items:center;gap:10px;">
         <div>
-          <div style="font-weight:700;font-size:14px;color:#1e3a5f;">${recEsc(shownName)}</div>
+          <div style="font-weight:700;font-size:14px;color:#1e3a5f;">${recEsc(shownName).replace(/\s*\((jammed ticket)\)\s*$/i, ' <span style="font-weight:400;font-size:11px;color:#64748b;">($1)</span>')}</div>
           <div style="font-size:15px;color:#16a34a;font-weight:700;margin-top:2px;"${hiveLent ? ' class="hive-total"' : ''}>${amountLabel}</div>
           ${owedBy}
           ${hiveNote}
