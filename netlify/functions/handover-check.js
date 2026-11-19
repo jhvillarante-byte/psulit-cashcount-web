@@ -35,9 +35,9 @@ exports.handler = async (event) => {
       const isQty = row.category === "Scratch Physical Inventory";
       const a = num(isQty ? row.quantityUnits : row.amount), b = num(isQty ? prev.qty : prev.amount);
       if (a === null || b === null) continue;
-      if (Math.abs(a - b) > 0.005) mismatches.push(labelOf(row));
+      if (Math.abs(a - b) > 0.005) mismatches.push({ label: labelOf(row), kind: row.category, code: row.currency || "", fund: row.fundAccount || "", mine: a, qty: isQty });
     }
-    return json(200, { ok: true, checked: true, mismatches: [...new Set(mismatches)], closedBy: out.last.teller, closedAt: out.last.submittedAt });
+    return json(200, { ok: true, checked: true, mismatches: mismatches.map(m => m.label), items: mismatches, closedBy: out.last.teller, closedAt: out.last.submittedAt });
   } catch (e) {
     return json(200, { ok: true, checked: false, mismatches: [], warning: e instanceof Error ? e.message : String(e) });
   }

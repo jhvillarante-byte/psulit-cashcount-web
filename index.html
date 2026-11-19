@@ -1419,8 +1419,29 @@ async function addBankProofFiles(input, si) {
   document.getElementById('err-bank-proof').textContent = '';
   renderBankProofBox();
 }
-// Opening only: compare the count with the branch's last Closing and ask for ONE recount if something differs.
-// The closing amounts are never shown. After the recount the teller can continue either way; a remaining difference is flagged in the report.
+// Opening only: compare the count with the branch's last Closing. A mismatching item is CLEARED so the teller has to count and type it again
+// (the closing amounts are never shown). Both counts go in the report, so a "recount" that did not happen is visible.
+function handoverClear(it) {
+  try {
+    if(it.kind === 'Forex Cash') {
+      document.querySelectorAll(`input[id^="denom-${it.code}-"]`).forEach(i => { i.value = ''; });
+      updateTotals(it.code);
+      return;
+    }
+    const wipe = sel => document.querySelectorAll(sel).forEach(i => { i.value = ''; i.dispatchEvent(new Event('input', { bubbles: true })); });
+    if(it.kind === 'Scratch Physical Inventory') wipe('#scratch-physical-section input');
+    else if(/^Scratch$/i.test(it.fund)) wipe('#other-section-scratch input');
+    else if(/LottoMatik Cash/i.test(it.fund)) wipe('#lottomatik-cash-denoms input');
+    else if(/LottoMatik Wallet/i.test(it.fund)) wipe('#lottomatik-wallet-balance');
+    else if(/JuanPay/i.test(it.fund)) wipe('#other-section-juanpay input');
+    else if(/Hive/i.test(it.fund)) wipe('#hive-denom-sections input');
+  } catch(e) {}
+}
+const hoShow = it => {
+  if(it.qty) return `${it.mine} pcs`;
+  const n = Number(it.mine).toLocaleString('en-PH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+  return it.kind === 'Forex Cash' && it.code !== 'PHP' ? `${n} ${it.code}` : `₱${n}`;
+};
 async function handoverGate(proceed) {
   const box = document.getElementById('handover-warning');
   if(box) box.style.display = 'none';
@@ -1431,15 +1452,27 @@ async function handoverGate(proceed) {
     const r = await fetch(`${BACKEND}/handover-check`, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${state.sessionToken}`}, body: JSON.stringify({ branch: state.branch, report }) });
     res = await r.json().catch(() => null);
   } catch(e) { res = null; }
-  const list = res && res.ok && res.checked && Array.isArray(res.mismatches) ? res.mismatches : [];
-  if(!list.length) { state.handoverFlag = null; state.handoverTries = 0; proceed(); return; }
-  state.handoverTries = (state.handoverTries || 0) + 1;
-  if(state.handoverTries >= 2) { state.handoverFlag = list; proceed(); return; }
-  if(box) {
-    box.textContent = 'Your count does not match the last Closing for: ' + list.join(', ') + '. Please count these again carefully, correct them if needed, then tap Continue.';
-    box.style.display = 'block';
-    box.scrollIntoView({ behavior:'smooth', block:'center' });
+  const items = res && res.ok && res.checked && Array.isArray(res.items) ? res.items : [];
+  const first = state.handoverFirst || null;
+  if(!items.length) {
+    // Matches the last Closing. If this followed a mismatch, keep the evidence of the first count.
+    state.handoverFlag = first ? { first, still: [] } : null;
+    proceed(); return;
   }
+  if(!first) {
+    // First mismatch: remember her first count, clear those items, and make her count them again.
+    state.handoverFirst = items.map(it => ({ label: it.label, shown: hoShow(it) }));
+    items.forEach(handoverClear);
+    if(box) {
+      box.textContent = 'Your count does not match the last Closing for: ' + items.map(i => i.label).join(', ') + '. Those amounts were cleared. Please count them again carefully and enter them, then tap Continue.';
+      box.style.display = 'block';
+      box.scrollIntoView({ behavior:'smooth', block:'center' });
+    }
+    return;
+  }
+  // Still different after the recount: continue, and flag it with both counts.
+  state.handoverFlag = { first, still: items.map(it => ({ label: it.label, shown: hoShow(it) })) };
+  proceed();
 }
 function bankContinue() {
   if(bankProofRequired()) {
@@ -2209,8 +2242,11 @@ ${line}
 `;
   msg += `👤 Teller: ${state.teller}
 `;
-  if(state.handoverFlag && state.handoverFlag.length) msg += `⚠️ Opening differs from the last Closing after a recount: ${state.handoverFlag.join(', ')}
+  if(state.handoverFlag && state.handoverFlag.first) {
+    const f = state.handoverFlag, now = new Map((f.still || []).map(x => [x.label, x.shown]));
+    msg += `⚠️ Handover recount: ` + f.first.map(x => `${x.label} first ${x.shown} → recount ${now.has(x.label) ? now.get(x.label) + ' (still differs from last Closing)' : 'matches last Closing'}`).join('; ') + `
 `;
+  }
   msg += `🕐 Timestamp: ${state.timestamp}
 `;
   msg += `🔑 Ref Code: ${state.uniqueCode}
@@ -2584,7 +2620,7 @@ async function handleSubmit() {
 }
 
 function resetForm() {
-  state.handoverTries = 0; state.handoverFlag = null;
+  state.handoverFirst = null; state.handoverFlag = null;
   document.getElementById("main-card").style.display="block";
   document.getElementById("success-card").style.display="none";
   document.getElementById("teller-pin").value="";
