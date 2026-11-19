@@ -1464,7 +1464,7 @@ async function handoverGate(proceed) {
     state.handoverFirst = items.map(it => ({ label: it.label, shown: hoShow(it) }));
     items.forEach(handoverClear);
     if(box) {
-      box.textContent = 'Your count does not match the last Closing for: ' + items.map(i => i.label).join(', ') + '. Those amounts were cleared. Please count them again carefully and enter them, then tap Continue.';
+      box.textContent = 'Please count again. It does not match the closing: ' + items.map(i => i.label).join(', ') + '.';
       box.style.display = 'block';
       box.scrollIntoView({ behavior:'smooth', block:'center' });
     }
@@ -2242,11 +2242,6 @@ ${line}
 `;
   msg += `👤 Teller: ${state.teller}
 `;
-  if(state.handoverFlag && state.handoverFlag.first) {
-    const f = state.handoverFlag, now = new Map((f.still || []).map(x => [x.label, x.shown]));
-    msg += `⚠️ Handover recount: ` + f.first.map(x => `${x.label} first ${x.shown} → recount ${now.has(x.label) ? now.get(x.label) + ' (still differs from last Closing)' : 'matches last Closing'}`).join('; ') + `
-`;
-  }
   msg += `🕐 Timestamp: ${state.timestamp}
 `;
   msg += `🔑 Ref Code: ${state.uniqueCode}
