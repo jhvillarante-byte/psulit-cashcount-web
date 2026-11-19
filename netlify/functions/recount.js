@@ -76,7 +76,7 @@ exports.handler = async (event) => {
     const threadId = branch === "Alphaland" ? process.env.ALPHALAND_CASH_COUNT_TOPIC_ID : process.env.SOLAIRE_CASH_COUNT_TOPIC_ID;
     const msg = [`🔁 CASH COUNT – OPENING (RECOUNT) — ${branch.toUpperCase()}`,
       `Teller: ${info.teller} · Ref: ${ref}`, `Recounted at ${now.short}`, ``, ...shown, ``,
-      still.length ? [`⚠️ Still does not match the last closing after the recount:`, ...still.map(d => d.line), ``, `${info.teller}, please explain.`].join("\n")
+      still.length ? [`⚠️ Still does not match the last closing after the recount:`, ...still.map(d => d.line), ``, `${st.closing.last.teller || "Closing teller"} (closing) and ${info.teller} (opening), please both explain.`].join("\n")
                    : `✅ Handover OK after the recount.`].join("\n");
     if (token && chatId && threadId) await L.tgSend(token, { chat_id: chatId, message_thread_id: Number(threadId), text: msg.slice(0, 4000) }).catch(() => null);
     return json(200, { ok: true, matched: !still.length, still: still.map(d => d.label) });

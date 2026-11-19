@@ -2695,7 +2695,7 @@ buildCCTV();
       f.style.display = 'none';
       const d = document.getElementById('rc-done'); d.style.display = 'block';
       if (r.matched) { d.style.background = '#f0fdf4'; d.style.border = '1.5px solid #16a34a'; d.innerHTML = '✅ <b>Recount saved.</b> It now matches the last closing.'; }
-      else { d.style.background = '#FFF4D6'; d.style.border = '1.5px solid #E8C25A'; d.innerHTML = `⚠️ <b>Recount saved.</b> It still does not match the last closing for: ${esc((r.still || []).join(', '))}. Please explain in the group.`; }
+      else { d.style.background = '#FFF4D6'; d.style.border = '1.5px solid #E8C25A'; d.innerHTML = `⚠️ <b>Recount saved.</b> It still does not match the last closing for: ${esc((r.still || []).join(', '))}. The closing and opening tellers must both explain in the group.`; }
     } catch (e) { e2.textContent = 'Unable to reach the server.'; }
     finally { b.disabled = false; b.textContent = 'Submit recount'; }
   }
