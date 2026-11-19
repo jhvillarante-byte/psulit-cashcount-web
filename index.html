@@ -2242,8 +2242,6 @@ ${line}
 `;
   msg += `👤 Teller: ${state.teller}
 `;
-  if(state.handoverFlag && state.handoverFlag.still && state.handoverFlag.still.length) msg += `⚠️ Handover mismatch: still does not match the last Closing after a recount: ${state.handoverFlag.still.map(x => x.label).join(', ')}
-`;
   msg += `🕐 Timestamp: ${state.timestamp}
 `;
   msg += `🔑 Ref Code: ${state.uniqueCode}

@@ -41,7 +41,6 @@ function parseReport(message) {
   const arBooklets = arBookletsMatch ? arBookletsMatch[1] : null;
   const cctv = first(text, /CCTV footage for\s+(.+?)\s+on record/i);
   const isBackfill = /BACKFILL:/i.test(text);
-  const handover = first(text, /Handover mismatch:[^\n]*?after a recount:\s*([^\n]+)/i);
   const sections = [];
   let current = null;
 
@@ -213,7 +212,7 @@ function parseReport(message) {
   const order = ["FOREX CASH", "OTHER BALANCES", "LOTTOMATIK", "BANK BALANCES", "RECEIVABLES", "PAYABLES", "SCRATCH", "REMAINING SCRATCH CARDS", "WINNING CARDS PRESENTED TODAY"];
   sections.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
 
-  return { title, branch, shift, teller, timestamp, ref, grandTotal, arBooklets, cctv, isBackfill, handover, sections };
+  return { title, branch, shift, teller, timestamp, ref, grandTotal, arBooklets, cctv, isBackfill, sections };
 }
 
 function palette(name) {
@@ -283,7 +282,7 @@ function rowSvg(sectionName, x, y, label, value, width) {
 
 function renderSvg(data) {
   const width = 1000, margin = 52, cardW = width - margin * 2, rowH = 48, sectionHeaderH = 60;
-  let contentH = 390 + (data.handover ? 92 : 0);
+  let contentH = 390;
   const subH = 30;
   for (const s of data.sections) if (s.rows.length) contentH += sectionHeaderH + 28 + s.rows.length * rowH + s.rows.reduce((t, r) => t + (Array.isArray(r.sub) ? r.sub.length : 0), 0) * subH + 26;
   contentH += 230;
@@ -306,12 +305,6 @@ function renderSvg(data) {
     body += `<text x="${margin + 36}" y="${y}" font-size="23" font-weight="700" fill="#7F90A3">${esc(label)}</text>`;
     body += `<text x="${margin + 235}" y="${y}" font-size="23" font-weight="400" fill="#EDF4FB">${esc(value)}</text>`;
     y += 44;
-  }
-  if (data.handover) {
-    body += `<rect x="${margin + 36}" y="${y - 6}" width="${cardW - 72}" height="78" rx="14" fill="#3B2D09" stroke="#F7C95C" stroke-width="2"/>`;
-    body += `<text x="${margin + 58}" y="${y + 26}" font-size="22" font-weight="700" fill="#F7C95C">⚠ HANDOVER MISMATCH — still differs from last Closing after a recount</text>`;
-    body += `<text x="${margin + 58}" y="${y + 56}" font-size="21" font-weight="400" fill="#FCE7B0">${esc(String(data.handover).slice(0, 80))}</text>`;
-    y += 92;
   }
   y += 8;
   body += `<line x1="${margin + 36}" y1="${y}" x2="${margin + cardW - 36}" y2="${y}" stroke="#263341" stroke-width="2"/>`;
@@ -375,7 +368,6 @@ function buildCaption(message) {
   const data = parseReport(message);
   const lines = [data.title, `Branch: ${data.branch}`, `Shift: ${data.shift}`, `Teller: ${data.teller}`, `Ref Code: ${data.ref}`, `Forex Total (PHP Equivalent): ${data.grandTotal}`];
   if (data.isBackfill) lines.push("Backfill: original submitted count");
-  if (data.handover) lines.push(`⚠️ Handover mismatch after recount: ${data.handover}`);
   return lines.join("\n").slice(0, 1024);
 }
 function multipartField(boundary, name, value) { return Buffer.from(`--${boundary}\r\nContent-Disposition: form-data; name="${name}"\r\n\r\n${value}\r\n`); }
