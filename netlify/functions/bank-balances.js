@@ -1,5 +1,6 @@
 // Current bank balances for a branch (read-only), plus whether this teller may change them.
 // Only the bank-uploader (default: Jazelle) edits bank balances; every other teller's count carries them forward automatically.
+const crypto = require("crypto");
 const { verifyToken, json, requirePost, parseBody } = require("./_auth");
 
 const BRANCHES = ["Alphaland", "Solaire"];
@@ -18,6 +19,24 @@ function weekStartPH() {
   const dow = (ph.getUTCDay() + 6) % 7; // Mon=0
   const mon = new Date(Date.UTC(ph.getUTCFullYear(), ph.getUTCMonth(), ph.getUTCDate() - dow));
   return mon.toISOString().slice(0, 10);
+}
+
+function addDays(ymd, n) { const d = new Date(ymd + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
+function todayPH() { return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10); }
+// The weekly bank proof is due on a RANDOM day each week (Mon-Sun), picked from a secret so nobody can predict it.
+// It then shows on the uploader's next count (that day or later) until the proof is posted. If a whole week passed
+// with no proof, it is due immediately.
+function proofDueDay(weekStart) {
+  const key = process.env.SESSION_SECRET || "psulit";
+  const h = crypto.createHmac("sha256", key).update("bank-proof-day:" + weekStart).digest();
+  return addDays(weekStart, h[0] % 7);
+}
+function proofIsDue(weekStart, lastProof) {
+  const last = String(lastProof || "");
+  if (last && last >= weekStart) return false;                 // already posted this week
+  const prevStart = addDays(weekStart, -7);
+  if (!last || last < prevStart) return true;                  // nothing posted last week either: due now
+  return todayPH() >= proofDueDay(weekStart);                  // otherwise only from this week's random day
 }
 
 exports.isUploader = isUploader;
@@ -40,7 +59,7 @@ exports.handler = async (event) => {
     const res = await fetch(url);
     const text = await res.text();
     let out = {}; try { out = JSON.parse(text); } catch (_) {}
-    if (res.ok && out && out.ok === true && Array.isArray(out.balances)) return json(200, { ok: true, canEdit, bankBranch: branch, weekStart, lastProof: out.lastProof || "", proofDone: !!out.lastProof && String(out.lastProof) >= weekStart, balances: out.balances, source: "sheet" });
+    if (res.ok && out && out.ok === true && Array.isArray(out.balances)) return json(200, { ok: true, canEdit, bankBranch: branch, weekStart, proofDone: !proofIsDue(weekStart, out.lastProof), balances: out.balances, source: "sheet" });
     return json(200, { ok: true, canEdit, bankBranch: branch, weekStart, proofDone: false, balances: [], source: "none", warning: String((out && out.error) || "Reader did not return bank balances.") });
   } catch (error) {
     return json(200, { ok: true, canEdit, bankBranch: branch, weekStart, proofDone: false, balances: [], source: "none", warning: error instanceof Error ? error.message : String(error) });

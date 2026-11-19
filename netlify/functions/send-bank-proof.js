@@ -82,7 +82,7 @@ exports.handler = async (event) => {
 
   const teller = String(body.teller || session.teller || "").slice(0, 60);
   const date = String(body.date || "").slice(0, 10);
-  const lines = [`🏦 WEEKLY BANK PROOF — Solaire bank accounts`, `📅 ${date} (start-of-week check)`, `👤 ${teller}${countBranch === "Alphaland" ? " (on duty at Alphaland)" : ""}`, ""]
+  const lines = [`🏦 WEEKLY BANK PROOF — Solaire bank accounts`, `📅 ${date} (weekly check)`, `👤 ${teller}${countBranch === "Alphaland" ? " (on duty at Alphaland)" : ""}`, ""]
     .concat(banks.length ? banks.map(b => `${String(b.name || "").slice(0, 40)} — ${peso(b.amt, String(b.cur || "PHP"))}${b.reason ? ` (${String(b.reason).slice(0, 40)})` : ""}`) : ["(no bank balances listed)"])
     .concat(["", "Proof only — not added to any total."]);
 
