@@ -23,13 +23,13 @@ function weekStartPH() {
 
 function addDays(ymd, n) { const d = new Date(ymd + "T00:00:00Z"); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
 function todayPH() { return new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10); }
-// The weekly bank proof is due on a RANDOM day each week (Mon-Sun), picked from a secret so nobody can predict it.
+// The weekly bank proof is due on a RANDOM weekday each week (Mon-Fri; Jazelle is off on weekends), picked from a secret so nobody can predict it.
 // It then shows on the uploader's next count (that day or later) until the proof is posted. If a whole week passed
 // with no proof, it is due immediately.
 function proofDueDay(weekStart) {
   const key = process.env.SESSION_SECRET || "psulit";
   const h = crypto.createHmac("sha256", key).update("bank-proof-day:" + weekStart).digest();
-  return addDays(weekStart, h[0] % 7);
+  return addDays(weekStart, h[0] % 5); // Mon..Fri only
 }
 function proofIsDue(weekStart, lastProof) {
   const last = String(lastProof || "");
