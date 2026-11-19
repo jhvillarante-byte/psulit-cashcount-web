@@ -78,3 +78,9 @@
   to = "/.netlify/functions/send-corrected-image"
   status = 200
   force = true
+
+[[redirects]]
+  from = "/last-count"
+  to = "/.netlify/functions/last-count"
+  status = 200
+  force = true

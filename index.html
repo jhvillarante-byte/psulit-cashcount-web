@@ -644,6 +644,20 @@ async function goStep1() {
     state.teller = data.teller || "Teller";
     state.sessionToken = data.token;
     state.authorizedBranches = allowed;
+    // Stop a second Opening in a row (a teller who already opened must now do the Closing). Fails open if the check can't be made.
+    if(state.openClosing === "Opening"){
+      try {
+        const lc = await fetch(`${BACKEND}/last-count`, { method:"POST", headers:{"Content-Type":"application/json","Authorization":`Bearer ${data.token}`}, body: JSON.stringify({ branch: state.branch }) });
+        const lcd = await lc.json().catch(() => ({}));
+        const last = lcd && lcd.last;
+        if(last && last.countType === "Opening"){
+          document.getElementById("err-openclosing").textContent = `An Opening was already done (${last.shift}, ${last.teller}, ${last.submittedAt}). Please choose Closing.`;
+          state.openClosing = "";
+          document.querySelectorAll("#openclosing-group .radio-btn").forEach(b=>b.classList.remove("selected"));
+          return;
+        }
+      } catch(e) {}
+    }
     const display = document.getElementById("teller-name-display");
     if(display){ display.style.display="block"; display.textContent="✓ " + state.teller; }
     document.getElementById("err-teller").textContent="";
