@@ -650,8 +650,8 @@ async function goStep1() {
         const lc = await fetch(`${BACKEND}/last-count`, { method:"POST", headers:{"Content-Type":"application/json","Authorization":`Bearer ${data.token}`}, body: JSON.stringify({ branch: state.branch }) });
         const lcd = await lc.json().catch(() => ({}));
         const last = lcd && lcd.last;
-        if(last && last.countType === "Opening"){
-          document.getElementById("err-openclosing").textContent = `An Opening was already done (${last.shift}, ${last.teller}, ${last.submittedAt}). Please choose Closing.`;
+        if(last && last.countType === "Opening" && String(last.teller||"").trim().toLowerCase() === String(state.teller||"").trim().toLowerCase()){
+          document.getElementById("err-openclosing").textContent = `You already submitted an Opening (${last.shift}, ${last.submittedAt}). Please choose Closing.`;
           state.openClosing = "";
           document.querySelectorAll("#openclosing-group .radio-btn").forEach(b=>b.classList.remove("selected"));
           return;
