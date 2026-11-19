@@ -15,16 +15,35 @@ function peso(n, cur) {
 }
 function slug(v) { return String(v || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
 
-async function sendPhoto({ token, chatId, threadId, buffer, caption }) {
-  const form = new FormData();
-  form.append("chat_id", String(chatId));
-  form.append("message_thread_id", String(threadId));
-  if (caption) form.append("caption", caption.slice(0, 1000));
-  form.append("photo", new Blob([buffer], { type: "image/jpeg" }), "bank-proof.jpg");
-  const res = await fetch(`https://api.telegram.org/bot${token}/sendPhoto`, { method: "POST", body: form });
+async function tgJson(token, method, form) {
+  const res = await fetch(`https://api.telegram.org/bot${token}/${method}`, { method: "POST", body: form });
   const out = await res.json().catch(() => ({}));
-  if (!out.ok) throw new Error(out.description || `Telegram rejected the photo (${res.status}).`);
-  return out.result && out.result.message_id;
+  if (!out.ok) throw new Error(out.description || `Telegram rejected the photos (${res.status}).`);
+  return out.result;
+}
+
+// Sends the screenshots together as one album (Telegram groups 2-10 photos); the caption sits on the first photo.
+async function sendAlbum({ token, chatId, threadId, buffers, caption }) {
+  let sent = 0;
+  for (let start = 0; start < buffers.length; start += 10) {
+    const chunk = buffers.slice(start, start + 10);
+    const cap = start === 0 ? caption.slice(0, 1024) : "";
+    const form = new FormData();
+    form.append("chat_id", String(chatId));
+    form.append("message_thread_id", String(threadId));
+    if (chunk.length === 1) {
+      if (cap) form.append("caption", cap);
+      form.append("photo", new Blob([chunk[0]], { type: "image/jpeg" }), "bank-proof.jpg");
+      await tgJson(token, "sendPhoto", form);
+    } else {
+      const media = chunk.map((_, i) => ({ type: "photo", media: `attach://p${i}`, ...(i === 0 && cap ? { caption: cap } : {}) }));
+      form.append("media", JSON.stringify(media));
+      chunk.forEach((b, i) => form.append(`p${i}`, new Blob([b], { type: "image/jpeg" }), `bank-proof-${start + i + 1}.jpg`));
+      await tgJson(token, "sendMediaGroup", form);
+    }
+    sent += chunk.length;
+  }
+  return sent;
 }
 
 async function syncSolaireRows(rows) {
@@ -69,14 +88,18 @@ exports.handler = async (event) => {
 
   let sent = 0;
   try {
+    const buffers = [], labels = [];
     for (let i = 0; i < images.length; i += 1) {
       const item = images[i] && typeof images[i] === "object" ? images[i] : { dataUrl: images[i] };
       const m = String(item.dataUrl || "").match(/^data:image\/jpeg;base64,(.+)$/);
       if (!m) throw new Error("Screenshot format not supported.");
       const buffer = Buffer.from(m[1], "base64");
       if (buffer.length > MAX_BYTES) throw new Error("A screenshot is too large. Please retake it smaller.");
-      await sendPhoto({ token, chatId, threadId, buffer, caption: i === 0 ? lines.join("\n") + (item.label ? `\n\n📎 ${String(item.label).slice(0, 80)}` : "") : `Bank proof ${i + 1}/${images.length}${item.label ? " — " + String(item.label).slice(0, 80) : ""}` });
-      sent += 1;
+      buffers.push(buffer); labels.push(String(item.label || "").slice(0, 60));
+    }
+    if (buffers.length) {
+      const photoList = labels.some(Boolean) ? "\n\n📎 " + labels.map((l, i) => `${i + 1}) ${l || "screenshot"}`).join("\n📎 ") : "";
+      sent = await sendAlbum({ token, chatId, threadId, buffers, caption: lines.join("\n") + photoList });
     }
   } catch (error) {
     return json(502, { ok: false, sent, error: error instanceof Error ? error.message : "Could not reach Telegram." });
