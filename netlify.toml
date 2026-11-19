@@ -25,6 +25,18 @@
   force = true
 
 [[redirects]]
+  from = "/bank-balances"
+  to = "/.netlify/functions/bank-balances"
+  status = 200
+  force = true
+
+[[redirects]]
+  from = "/send-bank-proof"
+  to = "/.netlify/functions/send-bank-proof"
+  status = 200
+  force = true
+
+[[redirects]]
   from = "/send-report-live"
   to = "/.netlify/functions/send-report-live"
   status = 200

@@ -197,6 +197,7 @@ function buildCashCountRows(message, branch) {
     });
   }
 
+  const bankProofSent = /Monday bank proof:\s*✓/i.test(text);
   let section = "";
   for (const line of lines) {
     if (/Bank Balances/i.test(line)) { section = "bank"; continue; }
@@ -211,6 +212,8 @@ function buildCashCountRows(message, branch) {
       if (!entry || entry.amount === null) continue;
       const category = section === "bank" ? "Bank Balance" : section === "receivable" ? "Receivable" : "Payable";
       addRow(`${slug(category)}-${slug(entry.name)}-${entry.currency}`, { category, currency: entry.currency, fundAccount: entry.name, amount: entry.amount, phpEquivalent: entry.currency === "PHP" ? entry.amount : "", quantityUnits: "", notes: entry.reason });
+      // Monday bank proof: a screenshot of this balance was sent to Telegram. Recorded as its own row; never part of any total.
+      if (section === "bank" && bankProofSent) addRow(`BANK-PROOF-${slug(entry.name)}-${entry.currency}`, { category: "Bank Proof", currency: entry.currency, fundAccount: entry.name, amount: entry.amount, phpEquivalent: "", quantityUnits: "", notes: "Monday screenshot proof sent to Telegram (proof only, not totalled)" });
       continue;
     }
     if (section === "scratchWinning") {

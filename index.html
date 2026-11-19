@@ -442,12 +442,22 @@
   <!-- STEP 6 - Bank Balances -->
   <div class="section" id="step-6">
     <h2>Bank Balances</h2>
-    <p class="section-sub">Balances are carried forward from the previous cash count. Edit only if there are changes.</p>
+    <p class="section-sub" id="bank-sub">Balances are carried forward from the previous cash count. Edit only if there are changes.</p>
     <div id="bank-list"></div>
-    <button onclick="addEntry('bank')" style="background:none;border:1.5px dashed #94a3b8;border-radius:9px;padding:10px 16px;color:#64748b;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-top:6px;">+ Add Bank Balance</button>
+    <button id="bank-add-btn" onclick="addEntry('bank')" style="background:none;border:1.5px dashed #94a3b8;border-radius:9px;padding:10px 16px;color:#64748b;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-top:6px;">+ Add Bank Balance</button>
+    <div id="bank-proof-box" style="display:none;margin-top:16px;background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:12px;padding:14px;">
+      <div style="font-weight:800;font-size:14px;color:#075985;">📸 Monday bank proof</div>
+      <p style="font-size:12.5px;color:#475569;margin:6px 0 10px;line-height:1.45;">Every Monday, screenshot each bank account's balance as proof. These are for proof only — they are not added to any total. If a balance is unchanged, leave it as is (no adjustment).</p>
+      <div id="bank-proof-done" style="display:none;font-size:13px;font-weight:700;color:#16a34a;margin-bottom:8px;">✓ This week's proof was already sent today.</div>
+      <label for="bank-proof-file" style="display:block;text-align:center;background:#0369a1;color:#fff;border-radius:9px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;">+ Add screenshot(s)</label>
+      <input type="file" id="bank-proof-file" accept="image/*" multiple style="display:none" onchange="addBankProofFiles(this)">
+      <div id="bank-proof-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;"></div>
+      <label style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-size:12.5px;color:#334155;"><input type="checkbox" id="bank-proof-confirm" style="margin-top:2px;"> <span>These screenshots show the same balances listed above.</span></label>
+      <span id="err-bank-proof" style="color:#dc2626;font-size:12px;display:block;margin-top:6px;"></span>
+    </div>
     <div class="btn-row" style="margin-top:20px">
       <button class="btn-secondary" onclick="goTo(4)">← Back</button>
-      <button class="btn-primary" onclick="goTo(7)" style="flex:1">Continue →</button>
+      <button class="btn-primary" onclick="bankContinue()" style="flex:1">Continue →</button>
     </div>
   </div>
 
@@ -598,7 +608,7 @@ function goTo(n) {
     lbl.className = "step-label" + (n===stepNum?" active":"");
   });
   if(n===5) buildSummary();
-  if(n===6) loadStep('bank');
+  if(n===6) { loadStep('bank'); renderBankProofBox(); }
   if(n===7) loadAutoRecPayables();
   window.scrollTo(0,0);
 }
@@ -1327,6 +1337,65 @@ let recCount = 0, payCount = 0;
 
 let bankCount = 0;
 
+// ── MONDAY BANK PROOF ─────────────────────────────
+let bankProof = []; // [{name, dataUrl}] — compressed screenshots, proof only (never totalled)
+function isMondayPH() { try { return new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Manila',weekday:'long'}).format(new Date()) === 'Monday'; } catch(e) { return false; } }
+function phDateStr() { try { return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Manila'}).format(new Date()); } catch(e) { return ''; } }
+function bankProofKey() { return `psulit_bankproof_${state.branch}_${phDateStr()}`; }
+function bankProofAlreadySent() { try { return !!localStorage.getItem(bankProofKey()); } catch(e) { return false; } }
+function bankProofRequired() { return isMondayPH() && !!state.bankCanEdit && !bankProofAlreadySent(); }
+function renderBankProofBox() {
+  const box = document.getElementById('bank-proof-box'); if(!box) return;
+  box.style.display = (isMondayPH() && state.bankCanEdit) ? 'block' : 'none';
+  document.getElementById('bank-proof-done').style.display = bankProofAlreadySent() ? 'block' : 'none';
+  const list = document.getElementById('bank-proof-list');
+  list.innerHTML = bankProof.map((p,i) => `<div style="position:relative;"><img src="${p.dataUrl}" style="width:78px;height:78px;object-fit:cover;border-radius:8px;border:1.5px solid #cbd5e1;"><button onclick="removeBankProof(${i})" style="position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:none;background:#dc2626;color:#fff;font-weight:800;cursor:pointer;">×</button></div>`).join('');
+}
+function removeBankProof(i) { bankProof.splice(i,1); renderBankProofBox(); }
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image(), url = URL.createObjectURL(file);
+    img.onload = () => {
+      const max = 1400, k = Math.min(1, max / Math.max(img.width, img.height));
+      const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url); resolve(c.toDataURL('image/jpeg', 0.72));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('bad image')); };
+    img.src = url;
+  });
+}
+async function addBankProofFiles(input) {
+  const files = Array.from(input.files || []);
+  for(const f of files) {
+    if(bankProof.length >= 8) break;
+    try { bankProof.push({ name: f.name, dataUrl: await compressImage(f) }); } catch(e) {}
+  }
+  input.value = '';
+  document.getElementById('err-bank-proof').textContent = '';
+  renderBankProofBox();
+}
+function bankContinue() {
+  if(bankProofRequired()) {
+    const err = document.getElementById('err-bank-proof');
+    if(!bankProof.length) { err.textContent = 'Monday: add a screenshot of the bank balances first.'; return; }
+    if(!document.getElementById('bank-proof-confirm').checked) { err.textContent = 'Tick the box to confirm the screenshots match the balances.'; return; }
+  }
+  goTo(7);
+}
+async function sendBankProof() {
+  if(!bankProof.length) return { ok: true, skipped: true };
+  const banks = getEntries('bank').map(e => ({ name: e.name, cur: e.cur, amt: e.amt, reason: e.reason || '' }));
+  const res = await fetch(`${BACKEND}/send-bank-proof`, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${state.sessionToken}`},
+    body: JSON.stringify({ branch: state.branch, teller: state.teller, date: phDateStr(), banks, images: bankProof.map(p => p.dataUrl) })
+  });
+  const data = await res.json().catch(() => ({}));
+  if(res.ok && data.ok) { try { localStorage.setItem(bankProofKey(), '1'); } catch(e) {} bankProof = []; }
+  return data;
+}
+
 // ── CARRY-FORWARD STORAGE ─────────────────────────
 function storageKey(type, branch) {
   return `psulit_${type}_${branch}`;
@@ -1368,7 +1437,7 @@ function makeEntryHTML(id, type, entry, isCarried, wasCarried) {
           <div style="font-size:15px;color:#16a34a;font-weight:700;margin-top:2px;">${fmtAmt(amt, cur)}</div>
           ${entry?.reason ? `<div style="font-size:11px;color:#92400e;background:#fef9ec;border-radius:5px;padding:2px 6px;margin-top:4px;display:inline-block;">📝 ${entry.reason}</div>` : ''}
         </div>
-        <button onclick="editEntry('${id}','${type}')" style="background:#1e3a5f;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;">Edit</button>
+        ${type === 'bank' && !state.bankCanEdit ? '' : `<button onclick="editEntry('${id}','${type}')" style="background:#1e3a5f;color:#fff;border:none;border-radius:8px;padding:8px 16px;font-size:13px;font-weight:700;cursor:pointer;">Edit</button>`}
       </div>
       <input type="hidden" id="name-${id}" value="${name}">
       <input type="hidden" id="cur-${id}" value="${cur}">
@@ -1688,7 +1757,40 @@ function retryAutoPayables() {
 
 function loadStep(type) {
   if(type === 'receivables' || type === 'payables') return loadAutoRecPayables();
+  if(type === 'bank') return loadBankStep();
   return loadStepManual(type);
+}
+// Bank balances: Jazelle (the bank uploader) is the only teller who changes them. Everyone else sees them read-only,
+// filled in automatically from the latest Cash Count on the sheet — no manual entry.
+async function loadBankStep() {
+  const list = document.getElementById('bank-list');
+  const sub = document.getElementById('bank-sub');
+  if(!state.branch || !list) return;
+  try {
+    const res = await fetch(`${BACKEND}/bank-balances`, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${state.sessionToken}`}, body: JSON.stringify({ branch: state.branch }) });
+    const data = await res.json().catch(()=>({}));
+    if(res.ok && data.ok) {
+      state.bankCanEdit = !!data.canEdit;
+      if(Array.isArray(data.balances) && data.balances.length && list.children.length === 0) {
+        data.balances.forEach(e => {
+          const id = `bank-${++bankCount}`;
+          const div = document.createElement('div');
+          div.innerHTML = makeEntryHTML(id, 'bank', { name:e.name, cur:e.cur, amt:Number(e.amt)||0, reason:e.reason||'' }, true, true);
+          list.appendChild(div.firstElementChild);
+        });
+      }
+    }
+  } catch(e) {}
+  if(state.bankCanEdit === undefined) state.bankCanEdit = false;
+  if(list.children.length === 0) loadStepManual('bank'); // reader not reachable: fall back to this device's last saved balances
+  applyBankEditMode();
+  renderBankProofBox();
+}
+function applyBankEditMode() {
+  const can = !!state.bankCanEdit;
+  const add = document.getElementById('bank-add-btn'); if(add) add.style.display = can ? 'block' : 'none';
+  const sub = document.getElementById('bank-sub');
+  if(sub) sub.textContent = can ? 'Balances are carried forward from the previous cash count. Edit only if there are changes (Monday: add the bank screenshots below).' : 'Bank balances are updated by Jazelle every Monday and filled in automatically. Nothing to enter here — just tap Continue.';
 }
 
 function retryAutoReceivables() {
@@ -2112,6 +2214,7 @@ ${line}
   // Bank Balances
   const bankEntries = getEntries('bank');
   if(bankEntries.length > 0) {
+    if(bankProof.length) msg += `${line}\n🧾 Monday bank proof: ✓ ${bankProof.length} screenshot${bankProof.length>1?'s':''} sent to Telegram\n`;
     msg += `${line}\n🏦 Bank Balances\n`;
     bankEntries.forEach(e => {
       const sym = e.cur === 'PHP' ? '₱' : e.cur + ' ';
@@ -2362,6 +2465,13 @@ async function handleSubmit() {
     syncInfo = data.sheet_sync || null;
     if(!res.ok && data.error) sendError = data.error;
   } catch(e){ sendError = e?.message || "Could not reach Cash Count server."; }
+  let proofHTML = "";
+  if(tgOk && bankProof.length) {
+    try {
+      const pr = await sendBankProof();
+      proofHTML = pr && pr.ok ? `<div class="telegram-badge" style="margin-top:6px">🏦 Bank proof screenshots sent ✓</div>` : `<div class="telegram-fail" style="margin-top:6px">⚠️ Bank proof screenshots were NOT sent${pr && pr.error ? ": "+pr.error : "."} Please send them to the Telegram group manually.</div>`;
+    } catch(e) { proofHTML = `<div class="telegram-fail" style="margin-top:6px">⚠️ Bank proof screenshots were NOT sent. Please send them to the Telegram group manually.</div>`; }
+  }
 
   const ok = tgOk && sheetOk;
   document.getElementById("main-card").style.display="none";
@@ -2374,7 +2484,7 @@ async function handleSubmit() {
   let statusHTML =
     (tgOk ? `<div class="telegram-badge">📨 Sent to PSULIT Team Telegram ✓</div>` : `<div class="telegram-fail">⚠️ Telegram delivery failed${sendError ? ": "+sendError : "."}</div>`)
     + (sheetOk ? `<div class="telegram-badge" style="margin-top:6px">📊 Saved to live Google Sheet ✓</div>` : `<div class="telegram-fail" style="margin-top:6px">⚠️ Live Google Sheet save failed${syncInfo?.error ? ": "+syncInfo.error : "."}</div>`);
-  document.getElementById("tg-status-badge").innerHTML=statusHTML;
+  document.getElementById("tg-status-badge").innerHTML=statusHTML+proofHTML;
 
   const ss=document.getElementById("success-summary");
   ss.innerHTML=`
@@ -2402,6 +2512,9 @@ function resetForm() {
   state.sessionToken="";
   state.authorizedBranches=[];
   resetRecPay();
+  bankProof = [];
+  state.bankCanEdit = undefined;
+  document.getElementById("bank-list").innerHTML = ""; bankCount = 0;
   document.getElementById("teller-name-display").style.display="none";
   document.getElementById("cctv-confirm").checked=false;
   document.getElementById("final-declare").checked=false;
