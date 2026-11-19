@@ -92,22 +92,6 @@
   .tab-total { display: block; font-size: 10px; color: #16a34a; font-weight: 700; }
 
 
-  /* Large view: one currency's count full screen, big text and boxes (for tellers who need it). */
-  #big-view { position: fixed; inset: 0; z-index: 9000; background: #fff; overflow-y: auto; padding: 0 12px 30px; display: none; }
-  #big-view .bv-head { position: sticky; top: 0; z-index: 2; background: #fff; display: flex; align-items: center; justify-content: space-between; padding: 14px 4px; border-bottom: 2px solid #e2e8f0; margin-bottom: 8px; }
-  #big-view .bv-title { font-size: 26px; font-weight: 800; color: #1e3a5f; }
-  #big-view .bv-done { font-size: 22px; font-weight: 800; padding: 12px 22px; border-radius: 12px; border: 0; background: #16a34a; color: #fff; }
-  #big-view .denom-section { display: block !important; }
-  #big-view .denom-header { display: none !important; }
-  #big-view .denom-row { grid-template-columns: 1fr 0.8fr; row-gap: 10px; padding: 16px 12px; }
-  #big-view .denom-label { grid-column: 1 / -1; font-size: 32px; display: flex; align-items: center; }
-  #big-view .denom-label img { height: 64px !important; margin-right: 14px !important; }
-  #big-view .denom-input { font-size: 32px; padding: 12px 10px; border-width: 2px; width: 100%; }
-  #big-view .denom-sub { font-size: 24px; font-weight: 700; text-align: right; }
-  #big-view .denom-total { font-size: 28px !important; padding: 16px 14px !important; }
-  #big-view .denom-total .total-amt { font-size: 34px !important; }
-  .bv-toggle { margin: 8px 0 4px; padding: 10px 14px; border-radius: 10px; border: 1.5px solid #cbd5e1; background: #f8fafc; font-size: 15px; font-weight: 700; color: #1e3a5f; cursor: pointer; }
-  .bv-toggle.on { background: #1e3a5f; color: #fff; border-color: #1e3a5f; }
   .denom-table { border: 1.5px solid #e2e8f0; border-radius: 10px; overflow: hidden; margin-bottom: 16px; margin-top: 12px; }
   .denom-header { display: grid; grid-template-columns: 1fr 1fr 1fr; background: #1e3a5f; color: #fff; padding: 10px 14px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
   .denom-row { display: grid; grid-template-columns: 1fr 1fr 1fr; padding: 8px 14px; border-bottom: 1px solid #f1f5f9; align-items: center; }
@@ -280,7 +264,6 @@
         <label class="field-label">Currencies on Hand</label>
         <div class="cur-grid" id="cur-grid"></div>
       </div>
-      <button type="button" id="bv-toggle" class="bv-toggle" onclick="toggleBigView()">🔍 Large view: OFF</button>
       <div class="tab-row" id="tab-row"></div>
       <div id="denom-sections"></div>
       <div class="all-cur-summary" id="all-cur-summary" style="display:none">
@@ -2019,7 +2002,9 @@ function toggleCur(code, btn) {
 }
 
 // Picture of the note beside its denomination (files in /img/notes/<CODE>-<value>.jpg). Add a value here when its picture is added.
-const DENOM_IMG = { PHP: [1000, 500, 200, 100, 50, 20, 10, 5, 1, 0.25, 0.1, 0.05, 0.01], USD: [100, 50, 20, 10, 5, 2, 1] };
+const DENOM_IMG = { PHP: [1000, 500, 200, 100, 50, 20, 10, 5, 1, 0.25, 0.1, 0.05, 0.01], USD: [100, 50, 20, 10, 5, 2, 1],
+  JPY: [10000, 5000, 1000], HKD: [1000, 500, 100, 50, 20], CAD: [100, 50, 20, 10, 5], GBP: [50, 20, 10, 5],
+  CHF: [1000, 200, 100, 50, 20, 10], EUR: [200, 100, 50, 20, 10, 5] };
 function denomImg(code, v) {
   return (DENOM_IMG[code] || []).includes(v) ? `<img src="/img/notes/${code}-${v}.jpg" alt="" loading="lazy" onclick="zoomNote('${code}',${v})" title="Tap to enlarge" style="height:34px;width:auto;border-radius:4px;vertical-align:middle;margin-right:10px;box-shadow:0 0 0 1px #e2e8f0;cursor:zoom-in">` : '';
 }
@@ -2082,37 +2067,7 @@ function switchTab(code) {
   document.querySelectorAll(".denom-section").forEach(s=>s.classList.remove("active"));
   const ds=document.getElementById("denom-sec-"+code);
   if(ds) ds.classList.add("active");
-  if(bigViewOn) openBigView(code);
 }
-// ---- Large view: when ON, tapping a currency opens its whole count full screen with big text and boxes. ----
-// The real count rows are moved into the big view (same boxes), so nothing is copied and nothing can get out of sync.
-let bigViewOn = false;
-try { bigViewOn = localStorage.getItem('psulit_bigview') === '1'; } catch (e) {}
-function paintBigViewToggle() { const b = document.getElementById('bv-toggle'); if (b) { b.textContent = '🔍 Large view: ' + (bigViewOn ? 'ON' : 'OFF'); b.classList.toggle('on', bigViewOn); } }
-function toggleBigView() {
-  bigViewOn = !bigViewOn;
-  try { localStorage.setItem('psulit_bigview', bigViewOn ? '1' : '0'); } catch (e) {}
-  paintBigViewToggle();
-  if (bigViewOn && state.activeCurTab) openBigView(state.activeCurTab);
-}
-function openBigView(code) {
-  const sec = document.getElementById('denom-sec-' + code); if (!sec) return;
-  closeBigView();
-  let bv = document.getElementById('big-view');
-  if (!bv) { bv = document.createElement('div'); bv.id = 'big-view'; document.body.appendChild(bv); }
-  const cur = CURRENCIES.find(c => c.code === code) || { flag: '', code };
-  bv.innerHTML = `<div class="bv-head"><span class="bv-title">${cur.flag} ${cur.code}</span><button type="button" class="bv-done" onclick="closeBigView()">Done ✓</button></div>`;
-  const mark = document.createElement('span'); mark.id = 'bv-mark'; sec.parentNode.insertBefore(mark, sec);
-  bv.appendChild(sec); bv.style.display = 'block'; bv.scrollTop = 0;
-  document.body.style.overflow = 'hidden';
-}
-function closeBigView() {
-  const bv = document.getElementById('big-view'), mark = document.getElementById('bv-mark');
-  if (bv && mark) { const sec = bv.querySelector('.denom-section'); if (sec) mark.parentNode.insertBefore(sec, mark); mark.remove(); }
-  if (bv) bv.style.display = 'none';
-  document.body.style.overflow = '';
-}
-document.addEventListener('DOMContentLoaded', paintBigViewToggle);
 
 
 function updateTotals(code) {
