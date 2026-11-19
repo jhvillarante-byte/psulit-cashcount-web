@@ -6,7 +6,7 @@ const { verifyToken, json, requirePost, parseBody } = require("./_auth");
 const { isUploader } = require("./bank-balances");
 
 const CASH_COUNT_SPREADSHEET_ID = "1_msQClr0yfx_jTKeEfop6lnfNvBPd-sNNMkgLnBgsrU";
-const MAX_IMAGES = 8;
+const MAX_IMAGES = 14;
 const MAX_BYTES = 1_800_000;
 
 function peso(n, cur) {
@@ -70,11 +70,12 @@ exports.handler = async (event) => {
   let sent = 0;
   try {
     for (let i = 0; i < images.length; i += 1) {
-      const m = String(images[i] || "").match(/^data:image\/jpeg;base64,(.+)$/);
+      const item = images[i] && typeof images[i] === "object" ? images[i] : { dataUrl: images[i] };
+      const m = String(item.dataUrl || "").match(/^data:image\/jpeg;base64,(.+)$/);
       if (!m) throw new Error("Screenshot format not supported.");
       const buffer = Buffer.from(m[1], "base64");
       if (buffer.length > MAX_BYTES) throw new Error("A screenshot is too large. Please retake it smaller.");
-      await sendPhoto({ token, chatId, threadId, buffer, caption: i === 0 ? lines.join("\n") : `Bank proof ${i + 1}/${images.length}` });
+      await sendPhoto({ token, chatId, threadId, buffer, caption: i === 0 ? lines.join("\n") + (item.label ? `\n\n📎 ${String(item.label).slice(0, 80)}` : "") : `Bank proof ${i + 1}/${images.length}${item.label ? " — " + String(item.label).slice(0, 80) : ""}` });
       sent += 1;
     }
   } catch (error) {

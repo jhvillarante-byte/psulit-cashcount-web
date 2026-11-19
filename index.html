@@ -447,11 +447,9 @@
     <button id="bank-add-btn" onclick="addEntry('bank')" style="background:none;border:1.5px dashed #94a3b8;border-radius:9px;padding:10px 16px;color:#64748b;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-top:6px;">+ Add Bank Balance</button>
     <div id="bank-proof-box" style="display:none;margin-top:16px;background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:12px;padding:14px;">
       <div style="font-weight:800;font-size:14px;color:#075985;">📸 Weekly bank proof</div>
-      <p style="font-size:12.5px;color:#475569;margin:6px 0 10px;line-height:1.45;">This is your first count of the week: screenshot each bank account's balance as proof. These are for proof only — they are not added to any total. If a balance is unchanged, leave it as is (no adjustment).</p>
+      <p style="font-size:12.5px;color:#475569;margin:6px 0 10px;line-height:1.45;">This is your first count of the week: add at least one screenshot for EACH bank balance below. Make sure the bank app's date and time are visible in the screenshot (the app also stamps the upload date on every picture). These are for proof only — they are not added to any total. If a balance is unchanged, leave it as is (no adjustment).</p>
       <div id="bank-proof-done" style="display:none;font-size:13px;font-weight:700;color:#16a34a;margin-bottom:8px;">✓ This week's proof was already sent today.</div>
-      <label for="bank-proof-file" style="display:block;text-align:center;background:#0369a1;color:#fff;border-radius:9px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;">+ Add screenshot(s)</label>
-      <input type="file" id="bank-proof-file" accept="image/*" multiple style="display:none" onchange="addBankProofFiles(this)">
-      <div id="bank-proof-list" style="display:flex;flex-wrap:wrap;gap:8px;margin-top:10px;"></div>
+      <div id="bank-proof-list" style="margin-top:4px;"></div>
       <label style="display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-size:12.5px;color:#334155;"><input type="checkbox" id="bank-proof-confirm" style="margin-top:2px;"> <span>These screenshots show the same balances listed above.</span></label>
       <span id="err-bank-proof" style="color:#dc2626;font-size:12px;display:block;margin-top:6px;"></span>
     </div>
@@ -1345,32 +1343,61 @@ function weekStartStr() { const d = new Date(phDateStr() + 'T00:00:00Z'); d.setU
 function bankProofKey() { return `psulit_bankproof_${state.branch}_${state.bankWeekStart || weekStartStr()}`; }
 function bankProofAlreadySent() { if(state.bankProofDone) return true; try { return !!localStorage.getItem(bankProofKey()); } catch(e) { return false; } }
 function bankProofRequired() { return !!state.bankCanEdit && !bankProofAlreadySent(); }
+function bankSlots() {
+  // one proof slot per bank balance listed above (bank + currency)
+  const seen = new Set();
+  return getEntries('bank').filter(e => e.name).map(e => ({ key: `${e.name}|${e.cur}`, label: `${e.name} — ${e.cur === 'PHP' ? '₱' : e.cur + ' '}${(Number(e.amt)||0).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2})}` }))
+    .filter(x => !seen.has(x.key) && seen.add(x.key));
+}
 function renderBankProofBox() {
   const box = document.getElementById('bank-proof-box'); if(!box) return;
   box.style.display = (state.bankCanEdit && !bankProofAlreadySent()) ? 'block' : 'none';
   document.getElementById('bank-proof-done').style.display = 'none';
-  const list = document.getElementById('bank-proof-list');
-  list.innerHTML = bankProof.map((p,i) => `<div style="position:relative;"><img src="${p.dataUrl}" style="width:78px;height:78px;object-fit:cover;border-radius:8px;border:1.5px solid #cbd5e1;"><button onclick="removeBankProof(${i})" style="position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:none;background:#dc2626;color:#fff;font-weight:800;cursor:pointer;">×</button></div>`).join('');
+  const slots = bankSlots();
+  const keys = new Set(slots.map(x => x.key));
+  bankProof = bankProof.filter(p => keys.has(p.key)); // a balance that was removed loses its screenshots
+  document.getElementById('bank-proof-list').innerHTML = slots.map((sl, si) => {
+    const mine = bankProof.map((p, i) => ({ p, i })).filter(x => x.p.key === sl.key);
+    return `<div style="background:#fff;border:1.5px solid #bae6fd;border-radius:10px;padding:10px;margin-bottom:10px;">
+      <div style="font-weight:700;font-size:13px;color:#1e3a5f;">${esc(sl.label)} <span style="color:${mine.length ? '#16a34a' : '#dc2626'};font-weight:700;">${mine.length ? '✓ ' + mine.length + ' screenshot' + (mine.length > 1 ? 's' : '') : '— screenshot needed'}</span></div>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin:8px 0;">${mine.map(x => `<div style="position:relative;"><img src="${x.p.dataUrl}" style="width:78px;height:78px;object-fit:cover;border-radius:8px;border:1.5px solid #cbd5e1;"><button onclick="removeBankProof(${x.i})" style="position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:none;background:#dc2626;color:#fff;font-weight:800;cursor:pointer;">×</button></div>`).join('')}</div>
+      <label for="bank-proof-file-${si}" style="display:block;text-align:center;background:#0369a1;color:#fff;border-radius:9px;padding:9px;font-size:13px;font-weight:700;cursor:pointer;">+ Add screenshot(s) for ${esc(sl.key.split('|')[0])} (${esc(sl.key.split('|')[1])})</label>
+      <input type="file" id="bank-proof-file-${si}" accept="image/*" multiple style="display:none" onchange="addBankProofFiles(this, ${si})">
+    </div>`;
+  }).join('') || '<p class="small" style="color:#64748b;">Add or confirm the bank balances above first.</p>';
 }
+function esc(v) { return String(v == null ? '' : v).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])); }
 function removeBankProof(i) { bankProof.splice(i,1); renderBankProofBox(); }
-function compressImage(file) {
+function phStamp() { try { return new Intl.DateTimeFormat('en-PH',{timeZone:'Asia/Manila',year:'numeric',month:'short',day:'2-digit',hour:'numeric',minute:'2-digit',hour12:true}).format(new Date()); } catch(e) { return new Date().toISOString(); } }
+function compressImage(file, stampText) {
   return new Promise((resolve, reject) => {
     const img = new Image(), url = URL.createObjectURL(file);
     img.onload = () => {
-      const max = 1400, k = Math.min(1, max / Math.max(img.width, img.height));
-      const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
-      URL.revokeObjectURL(url); resolve(c.toDataURL('image/jpeg', 0.72));
+      const max = 1280, k = Math.min(1, max / Math.max(img.width, img.height));
+      const w = Math.round(img.width * k), h = Math.round(img.height * k);
+      const bar = Math.max(34, Math.round(w * 0.055));
+      const c = document.createElement('canvas'); c.width = w; c.height = h + bar;
+      const g = c.getContext('2d');
+      g.drawImage(img, 0, 0, w, h);
+      // date stamp strip under the screenshot so the upload date/time is always visible on the picture itself
+      g.fillStyle = '#0f2a4a'; g.fillRect(0, h, w, bar);
+      g.fillStyle = '#fff'; g.font = `bold ${Math.round(bar * 0.5)}px Arial, sans-serif`; g.textBaseline = 'middle';
+      g.fillText(stampText, 10, h + bar / 2, w - 20);
+      URL.revokeObjectURL(url); resolve(c.toDataURL('image/jpeg', 0.7));
     };
     img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('bad image')); };
     img.src = url;
   });
 }
-async function addBankProofFiles(input) {
+async function addBankProofFiles(input, si) {
+  const slot = bankSlots()[si]; if(!slot) return;
   const files = Array.from(input.files || []);
   for(const f of files) {
-    if(bankProof.length >= 8) break;
-    try { bankProof.push({ name: f.name, dataUrl: await compressImage(f) }); } catch(e) {}
+    if(bankProof.length >= 14) break;
+    try {
+      const stamp = `Uploaded ${phStamp()} · ${slot.label} · ${state.teller || ''}`;
+      bankProof.push({ key: slot.key, label: slot.label, dataUrl: await compressImage(f, stamp) });
+    } catch(e) {}
   }
   input.value = '';
   document.getElementById('err-bank-proof').textContent = '';
@@ -1378,8 +1405,12 @@ async function addBankProofFiles(input) {
 }
 function bankContinue() {
   if(bankProofRequired()) {
+    renderBankProofBox();
     const err = document.getElementById('err-bank-proof');
-    if(!bankProof.length) { err.textContent = 'Add a screenshot of the bank balances first.'; return; }
+    const slots = bankSlots();
+    const missing = slots.filter(sl => !bankProof.some(p => p.key === sl.key));
+    if(!slots.length) { err.textContent = 'Confirm the bank balances above first.'; return; }
+    if(missing.length) { err.textContent = 'Screenshot needed for: ' + missing.map(m => m.label.split(' — ')[0] + ' (' + m.key.split('|')[1] + ')').join(', ') + '.'; return; }
     if(!document.getElementById('bank-proof-confirm').checked) { err.textContent = 'Tick the box to confirm the screenshots match the balances.'; return; }
   }
   goTo(7);
@@ -1389,7 +1420,7 @@ async function sendBankProof() {
   const res = await fetch(`${BACKEND}/send-bank-proof`, {
     method: 'POST',
     headers: {'Content-Type': 'application/json', 'Authorization': `Bearer ${state.sessionToken}`},
-    body: JSON.stringify({ branch: state.branch, teller: state.teller, date: phDateStr(), banks, images: bankProof.map(p => p.dataUrl) })
+    body: JSON.stringify({ branch: state.branch, teller: state.teller, date: phDateStr(), banks, images: bankProof.map(p => ({ label: p.label, dataUrl: p.dataUrl })) })
   });
   const data = await res.json().catch(() => ({}));
   if(res.ok && data.ok) { try { localStorage.setItem(bankProofKey(), '1'); } catch(e) {} state.bankProofDone = true; bankProof = []; }
@@ -1529,6 +1560,7 @@ function saveEntry(id, type) {
 
   const newHTML = makeEntryHTML(id, type, { name, cur, amt, reason }, true);
   div.outerHTML = newHTML;
+  if(type === 'bank') try { renderBankProofBox(); } catch(e) {}
 }
 
 function addEntry(type, entry) {
