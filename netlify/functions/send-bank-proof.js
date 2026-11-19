@@ -1,8 +1,11 @@
-// Weekly (Monday) bank-balance proof: posts the teller's screenshots to the branch's Cash Count Telegram topic.
-// Proof only — nothing here is totalled or adjusted. The matching "Bank Proof" sheet rows are written by send-report-live.
+// Weekly bank-balance proof. The bank accounts belong to Solaire only, so the screenshots always go to the Solaire
+// Cash Count Telegram topic, and when the count is done at Alphaland the Bank Balance / Bank Proof rows are written
+// to the Solaire Cash Count tab from here (a Solaire count writes them itself through send-report-live).
+// Proof only — nothing here is totalled or adjusted. Only the bank uploader (Jazelle) may call this.
 const { verifyToken, json, requirePost, parseBody } = require("./_auth");
 const { isUploader } = require("./bank-balances");
 
+const CASH_COUNT_SPREADSHEET_ID = "1_msQClr0yfx_jTKeEfop6lnfNvBPd-sNNMkgLnBgsrU";
 const MAX_IMAGES = 8;
 const MAX_BYTES = 1_800_000;
 
@@ -10,6 +13,7 @@ function peso(n, cur) {
   const sym = cur === "PHP" ? "₱" : `${cur} `;
   return sym + Number(n || 0).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
+function slug(v) { return String(v || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
 
 async function sendPhoto({ token, chatId, threadId, buffer, caption }) {
   const form = new FormData();
@@ -23,6 +27,22 @@ async function sendPhoto({ token, chatId, threadId, buffer, caption }) {
   return out.result && out.result.message_id;
 }
 
+async function syncSolaireRows(rows) {
+  const webhookUrl = process.env.CASH_COUNT_SHEET_WEBHOOK_URL;
+  const secrets = [...new Set([process.env.CASH_COUNT_SHEET_WEBHOOK_SECRET, process.env.CASH_COUNT_WEBHOOK_SECRET].filter(Boolean))];
+  if (!webhookUrl || !secrets.length) return { status: "not_configured", error: "Cash Count live-sheet bridge is not configured." };
+  let lastError = "Live-sheet sync failed.";
+  for (const secret of secrets) {
+    try {
+      const res = await fetch(webhookUrl, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ eventType: "CASH_COUNT_SYNC", spreadsheetId: CASH_COUNT_SPREADSHEET_ID, branch: "Solaire", rows, secret }) });
+      const text = await res.text(); let out = {}; try { out = JSON.parse(text); } catch (_) {}
+      if (res.ok && out && out.ok === true) return { status: "synced" };
+      lastError = String((out && out.error) || `Google Sheets webhook failed (${res.status}).`);
+    } catch (e) { lastError = e instanceof Error ? e.message : String(e); }
+  }
+  return { status: "failed", error: lastError };
+}
+
 exports.handler = async (event) => {
   const wrong = requirePost(event);
   if (wrong) return wrong;
@@ -32,20 +52,18 @@ exports.handler = async (event) => {
   const body = parseBody(event);
   if (!body) return json(400, { ok: false, error: "Bad request." });
 
-  const branch = body.branch === "Alphaland" || body.branch === "Solaire" ? body.branch : "";
-  if (!branch) return json(400, { ok: false, error: "Branch is required." });
+  const countBranch = body.branch === "Alphaland" ? "Alphaland" : "Solaire";
   const images = (Array.isArray(body.images) ? body.images : []).slice(0, MAX_IMAGES);
-  if (!images.length) return json(400, { ok: false, error: "No screenshots received." });
+  const banks = (Array.isArray(body.banks) ? body.banks : []).slice(0, 20).filter(b => b && String(b.name || "").trim());
+  if (!images.length && !(countBranch === "Alphaland" && banks.length)) return json(400, { ok: false, error: "No screenshots received." });
 
   const token = process.env.TELEGRAM_BOT_TOKEN;
-  const chatId = branch === "Alphaland" ? process.env.ALPHALAND_TELEGRAM_CHAT_ID : process.env.SOLAIRE_TELEGRAM_CHAT_ID;
-  const threadId = branch === "Alphaland" ? process.env.ALPHALAND_CASH_COUNT_TOPIC_ID : process.env.SOLAIRE_CASH_COUNT_TOPIC_ID;
-  if (!token || !chatId || !threadId) return json(500, { ok: false, error: `Telegram is not fully configured for ${branch}.` });
+  const chatId = process.env.SOLAIRE_TELEGRAM_CHAT_ID, threadId = process.env.SOLAIRE_CASH_COUNT_TOPIC_ID;
+  if (images.length && (!token || !chatId || !threadId)) return json(500, { ok: false, error: "Telegram is not fully configured for Solaire." });
 
-  const banks = (Array.isArray(body.banks) ? body.banks : []).slice(0, 20);
   const teller = String(body.teller || session.teller || "").slice(0, 60);
   const date = String(body.date || "").slice(0, 10);
-  const lines = [`🏦 WEEKLY BANK PROOF — ${branch}`, `📅 ${date} (start-of-week check)`, `👤 ${teller}`, ""]
+  const lines = [`🏦 WEEKLY BANK PROOF — Solaire bank accounts`, `📅 ${date} (start-of-week check)`, `👤 ${teller}${countBranch === "Alphaland" ? " (on duty at Alphaland)" : ""}`, ""]
     .concat(banks.length ? banks.map(b => `${String(b.name || "").slice(0, 40)} — ${peso(b.amt, String(b.cur || "PHP"))}${b.reason ? ` (${String(b.reason).slice(0, 40)})` : ""}`) : ["(no bank balances listed)"])
     .concat(["", "Proof only — not added to any total."]);
 
@@ -62,5 +80,22 @@ exports.handler = async (event) => {
   } catch (error) {
     return json(502, { ok: false, sent, error: error instanceof Error ? error.message : "Could not reach Telegram." });
   }
-  return json(200, { ok: true, sent });
+
+  // Alphaland count: record the Solaire bank rows here (a Solaire count records them through its own report).
+  let sheet = null;
+  if (countBranch === "Alphaland" && banks.length) {
+    const now = new Date().toISOString();
+    const reference = `BANK-${date}-${Date.now().toString(36).toUpperCase()}`;
+    const common = { submittedAt: now, businessDate: date, branch: "Solaire", countType: "", shift: "", teller, reference, sourceApp: "Cash Count App (bank, from Alphaland)" };
+    const rows = [];
+    banks.forEach(b => {
+      const cur = String(b.cur || "PHP").toUpperCase();
+      const amount = Number(b.amt) || 0;
+      rows.push({ syncKey: `${reference}:BANK-BALANCE-${slug(b.name)}-${cur}`, ...common, category: "Bank Balance", currency: cur, fundAccount: String(b.name).trim(), amount, phpEquivalent: cur === "PHP" ? amount : "", quantityUnits: "", notes: String(b.reason || "") });
+      if (images.length) rows.push({ syncKey: `${reference}:BANK-PROOF-${slug(b.name)}-${cur}`, ...common, category: "Bank Proof", currency: cur, fundAccount: String(b.name).trim(), amount, phpEquivalent: "", quantityUnits: "", notes: "Weekly screenshot proof sent to Telegram (proof only, not totalled)" });
+    });
+    sheet = await syncSolaireRows(rows);
+    if (sheet.status !== "synced") return json(502, { ok: false, sent, error: `Screenshots sent, but the sheet was not updated (${sheet.error || sheet.status}). Tell the owner.` });
+  }
+  return json(200, { ok: true, sent, sheet });
 };

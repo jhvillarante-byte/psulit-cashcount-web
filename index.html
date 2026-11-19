@@ -1385,7 +1385,6 @@ function bankContinue() {
   goTo(7);
 }
 async function sendBankProof() {
-  if(!bankProof.length) return { ok: true, skipped: true };
   const banks = getEntries('bank').map(e => ({ name: e.name, cur: e.cur, amt: e.amt, reason: e.reason || '' }));
   const res = await fetch(`${BACKEND}/send-bank-proof`, {
     method: 'POST',
@@ -1774,6 +1773,7 @@ async function loadBankStep() {
       state.bankCanEdit = !!data.canEdit;
       state.bankWeekStart = data.weekStart || '';
       state.bankProofDone = !!data.proofDone;
+      state.bankSnapshot = (data.balances||[]).map(b => `${b.name}|${b.cur}|${Number(b.amt)||0}`).join(';');
       if(Array.isArray(data.balances) && data.balances.length && list.children.length === 0) {
         data.balances.forEach(e => {
           const id = `bank-${++bankCount}`;
@@ -1792,8 +1792,10 @@ async function loadBankStep() {
 function applyBankEditMode() {
   const can = !!state.bankCanEdit;
   const add = document.getElementById('bank-add-btn'); if(add) add.style.display = can ? 'block' : 'none';
+  const here = can || state.branch === 'Solaire'; // the bank accounts are Solaire's; other tellers at Alphaland have nothing here
+  const bl = document.getElementById('bank-list'); if(bl) bl.style.display = here ? 'block' : 'none';
   const sub = document.getElementById('bank-sub');
-  if(sub) sub.textContent = can ? 'Balances are carried forward from the previous cash count. Edit only if there are changes (first count of the week: add the bank screenshots below).' : 'Bank balances are updated by Jazelle every week and filled in automatically. Nothing to enter here — just tap Continue.';
+  if(sub) sub.textContent = (!can && state.branch !== 'Solaire') ? 'The bank accounts are kept at Solaire — nothing to enter here. Just tap Continue.' : can ? 'Solaire bank balances, carried forward. Edit only if there are changes (first count of the week: add the bank screenshots below).' : 'Bank balances are updated by Jazelle every week and filled in automatically. Nothing to enter here — just tap Continue.';
 }
 
 function retryAutoReceivables() {
@@ -2215,7 +2217,7 @@ ${line}
   }
 
   // Bank Balances
-  const bankEntries = getEntries('bank');
+  const bankEntries = state.branch === 'Solaire' ? getEntries('bank') : []; // bank accounts are Solaire's; an Alphaland count never reports them
   if(bankEntries.length > 0) {
     if(bankProof.length) msg += `${line}\n🧾 Weekly bank proof: ✓ ${bankProof.length} screenshot${bankProof.length>1?'s':''} sent to Telegram\n`;
     msg += `${line}\n🏦 Bank Balances\n`;
@@ -2469,7 +2471,9 @@ async function handleSubmit() {
     if(!res.ok && data.error) sendError = data.error;
   } catch(e){ sendError = e?.message || "Could not reach Cash Count server."; }
   let proofHTML = "";
-  if(tgOk && bankProof.length) {
+  const bankNow = state.branch === 'Alphaland' && state.bankCanEdit ? getEntries('bank').map(e => `${e.name}|${e.cur}|${Number(e.amt)||0}`).join(';') : '';
+  const bankChangedAtAlphaland = state.branch === 'Alphaland' && state.bankCanEdit && bankNow !== (state.bankSnapshot || '');
+  if(tgOk && (bankProof.length || bankChangedAtAlphaland)) {
     try {
       const pr = await sendBankProof();
       proofHTML = pr && pr.ok ? `<div class="telegram-badge" style="margin-top:6px">🏦 Bank proof screenshots sent ✓</div>` : `<div class="telegram-fail" style="margin-top:6px">⚠️ Bank proof screenshots were NOT sent${pr && pr.error ? ": "+pr.error : "."} Please send them to the Telegram group manually.</div>`;

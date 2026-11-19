@@ -28,21 +28,21 @@ exports.handler = async (event) => {
   if (!session) return json(401, { ok: false, error: "Session expired. Please log in again." });
   const body = parseBody(event);
   if (!body) return json(400, { ok: false, error: "Bad request." });
-  const branch = BRANCHES.find(b => b.toLowerCase() === String(body.branch || "").trim().toLowerCase());
-  if (!branch) return json(400, { ok: false, error: "Unknown branch." });
+  // The bank accounts belong to Solaire only, whichever branch the count is for.
+  const branch = "Solaire";
 
   const canEdit = isUploader(session.teller);
   const weekStart = weekStartPH();
   const readerUrl = process.env.AUDIT_READER_URL, secret = process.env.AUDIT_READER_SECRET;
-  if (!readerUrl || !secret) return json(200, { ok: true, canEdit, weekStart, proofDone: false, balances: [], source: "none", warning: "Audit Reader not configured." });
+  if (!readerUrl || !secret) return json(200, { ok: true, canEdit, bankBranch: branch, weekStart, proofDone: false, balances: [], source: "none", warning: "Audit Reader not configured." });
   try {
     const url = readerUrl + (readerUrl.includes("?") ? "&" : "?") + "action=bankBalances&branch=" + encodeURIComponent(branch) + "&secret=" + encodeURIComponent(secret);
     const res = await fetch(url);
     const text = await res.text();
     let out = {}; try { out = JSON.parse(text); } catch (_) {}
-    if (res.ok && out && out.ok === true && Array.isArray(out.balances)) return json(200, { ok: true, canEdit, weekStart, lastProof: out.lastProof || "", proofDone: !!out.lastProof && String(out.lastProof) >= weekStart, balances: out.balances, source: "sheet" });
-    return json(200, { ok: true, canEdit, weekStart, proofDone: false, balances: [], source: "none", warning: String((out && out.error) || "Reader did not return bank balances.") });
+    if (res.ok && out && out.ok === true && Array.isArray(out.balances)) return json(200, { ok: true, canEdit, bankBranch: branch, weekStart, lastProof: out.lastProof || "", proofDone: !!out.lastProof && String(out.lastProof) >= weekStart, balances: out.balances, source: "sheet" });
+    return json(200, { ok: true, canEdit, bankBranch: branch, weekStart, proofDone: false, balances: [], source: "none", warning: String((out && out.error) || "Reader did not return bank balances.") });
   } catch (error) {
-    return json(200, { ok: true, canEdit, weekStart, proofDone: false, balances: [], source: "none", warning: error instanceof Error ? error.message : String(error) });
+    return json(200, { ok: true, canEdit, bankBranch: branch, weekStart, proofDone: false, balances: [], source: "none", warning: error instanceof Error ? error.message : String(error) });
   }
 };
