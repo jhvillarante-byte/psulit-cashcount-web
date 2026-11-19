@@ -85,8 +85,3 @@
   status = 200
   force = true
 
-[[redirects]]
-  from = "/handover-check"
-  to = "/.netlify/functions/handover-check"
-  status = 200
-  force = true

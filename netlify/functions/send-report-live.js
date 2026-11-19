@@ -293,7 +293,47 @@ async function sendTextFallback({ token, chatId, threadId, text }) {
   return result.result && result.result.message_id;
 }
 
+
+// ---- Handover check (separate from the Cash Count report) ----
+// After an Opening is posted, compare it with the branch's last Closing and, if anything differs,
+// post a separate "please recount" message in the same topic. Never affects the report or the sheet.
+async function postHandoverCheck({ token, chatId, threadId, branch, text, replyTo }) {
+  const readerUrl = process.env.AUDIT_READER_URL, secret = process.env.AUDIT_READER_SECRET;
+  if (!readerUrl || !secret) return { status: "skipped" };
+  const rows = buildCashCountRows(text, branch);
+  const head = rows[0];
+  if (!head || head.countType !== "Opening") return { status: "skipped" };
+  const url = readerUrl + (readerUrl.includes("?") ? "&" : "?") + "action=lastCountRows&type=Closing&branch=" + encodeURIComponent(branch)
+    + "&excludeRef=" + encodeURIComponent(head.reference) + "&secret=" + encodeURIComponent(secret);
+  const ctl = new AbortController(); const t = setTimeout(() => ctl.abort(), 9000);
+  let out;
+  try { out = JSON.parse(await (await fetch(url, { signal: ctl.signal })).text()); } finally { clearTimeout(t); }
+  if (!out || out.ok !== true || !out.last || !Array.isArray(out.rows)) return { status: "no-closing" };
+  const CHECKED = new Set(["Forex Cash", "Fund Balance", "Wallet Balance", "Scratch Physical Inventory"]);
+  const n = v => { const s = String(v === undefined || v === null ? "" : v).trim(); if (!s) return null; const x = Number(s.replace(/[^0-9.\-]/g, "")); return Number.isFinite(x) ? x : null; };
+  const prevByKey = new Map(out.rows.filter(r => CHECKED.has(r.category)).map(r => [r.key, r]));
+  const fmt = (v, cur, qty) => qty ? `${v} pcs` : cur === "PHP" ? "₱" + v.toLocaleString("en-PH", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : `${v.toLocaleString("en-PH", { maximumFractionDigits: 2 })} ${cur}`;
+  const lines = [];
+  for (const row of rows.filter(r => CHECKED.has(r.category))) {
+    const prev = prevByKey.get(row.syncKey.slice(row.syncKey.indexOf(":") + 1));
+    if (!prev) continue;
+    const qty = row.category === "Scratch Physical Inventory";
+    const a = n(qty ? prev.qty : prev.amount), b = n(qty ? row.quantityUnits : row.amount);
+    if (a === null || b === null || Math.abs(a - b) <= 0.005) continue;
+    const label = row.category === "Forex Cash" ? row.currency : row.category === "Scratch Physical Inventory" ? `${row.fundAccount} cards` : `${row.fundAccount}${row.currency && row.currency !== "PHP" ? " " + row.currency : ""}`;
+    const d = Math.round((b - a) * 100) / 100;
+    lines.push(`• ${label}: ${fmt(a, row.currency, qty)} → ${fmt(b, row.currency, qty)} (${d > 0 ? "+" : "−"}${fmt(Math.abs(d), row.currency, qty)})`);
+  }
+  if (!lines.length) return { status: "matched" };
+  const msg = [`⚠️ HANDOVER CHECK — ${branch.toUpperCase()}`,
+    `Closed by ${out.last.teller || "?"} (${out.last.submittedAt || "?"}) → Opened by ${head.teller || "?"} (${head.submittedAt || ""})`,
+    `The opening count does not match the last closing:`, ...lines, ``, `Please recount and report the result.`].join("\n");
+  const res = await fetch(`https://api.telegram.org/bot${token}/sendMessage`, { method: "POST", headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ chat_id: chatId, message_thread_id: Number(threadId), text: msg.slice(0, 4000), ...(replyTo ? { reply_parameters: { message_id: replyTo, allow_sending_without_reply: true } } : {}) }) });
+  return { status: res.ok ? "posted" : "telegram-failed", items: lines.length };
+}
 exports.buildCashCountRows = buildCashCountRows;
+exports.postHandoverCheck = postHandoverCheck;
 exports.handler = async (event) => {
   const wrongMethod = requirePost(event);
   if (wrongMethod) return wrongMethod;
@@ -332,7 +372,10 @@ exports.handler = async (event) => {
     }
 
     const sheetSync = await sheetSyncPromise;
+    const handover = await postHandoverCheck({ token, chatId, threadId, branch, text: fullText, replyTo: telegramMessageId })
+      .catch(e => ({ status: "error", error: e instanceof Error ? e.message : String(e) }));
     return json(200, {
+      handover_check: handover,
       ok: true,
       telegram_sent: true,
       sheet_saved: sheetSync.status === "synced",
