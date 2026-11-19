@@ -2602,5 +2602,105 @@ buildCCTV();
 
 
 </script>
+<script>
+/* ---------- Handover RECOUNT mode (opened from the "Tap here to recount" button in Telegram) ---------- */
+(function () {
+  const qp = new URLSearchParams(location.search);
+  const ref = qp.get('recount'), branch = qp.get('branch');
+  if (!ref || !/^(Alphaland|Solaire)$/.test(branch || '')) return;
+  const esc = t => String(t == null ? '' : t).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  let token = '', items = [];
+  function start() {
+    document.querySelectorAll('.section').forEach(x => x.classList.remove('active'));
+    const steps = document.querySelector('.steps'); if (steps) steps.style.display = 'none';
+    const host = document.getElementById('step-1').parentNode;
+    const sec = document.createElement('div');
+    sec.className = 'section active'; sec.id = 'step-recount';
+    sec.innerHTML = `
+      <h2>🔁 Handover Recount</h2>
+      <p style="color:#475569;font-size:14px;margin:0 0 14px">${esc(branch)} · Opening ${esc(ref)}<br>Recount <b>only</b> the items shown. One recount only.</p>
+      <div id="rc-login" class="field-group">
+        <label class="field-label">Teller PIN</label>
+        <input type="password" inputmode="numeric" maxlength="4" id="rc-pin" placeholder="Enter 4-digit PIN"
+          style="width:100%;padding:11px 14px;border-radius:9px;border:1.5px solid #e2e8f0;font-size:20px;letter-spacing:8px;outline:none;">
+        <span class="error" id="rc-err"></span>
+        <button class="btn-primary" id="rc-start" style="margin-top:14px">Start recount →</button>
+      </div>
+      <div id="rc-form" style="display:none"></div>
+      <div id="rc-done" style="display:none;margin-top:10px;padding:14px;border-radius:10px;font-size:15px;line-height:1.5"></div>`;
+    host.insertBefore(sec, document.getElementById('step-1'));
+    document.getElementById('rc-start').onclick = login;
+  }
+  const err = t => { const e = document.getElementById('rc-err'); if (e) e.textContent = t || ''; };
+  async function api(body) {
+    const r = await fetch('/recount', { method: 'POST', headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` }, body: JSON.stringify({ ...body, ref, branch }) });
+    return r.json().catch(() => ({ ok: false, error: 'Server error.' }));
+  }
+  async function login() {
+    const pin = document.getElementById('rc-pin').value || '';
+    if (!/^\d{4}$/.test(pin)) return err('Valid 4-digit PIN required');
+    const b = document.getElementById('rc-start'); b.disabled = true; b.textContent = 'Checking…'; err('');
+    try {
+      const r = await fetch('/auth/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ pin }) });
+      const d = await r.json().catch(() => ({}));
+      if (!r.ok || !d.ok || !d.token) return err(d.error || 'Unable to verify PIN.');
+      token = d.token;
+      const info = await api({ action: 'info' });
+      if (!info.ok) return err(info.error || 'Cannot recount.');
+      items = info.items || [];
+      renderForm();
+    } catch (e) { err('Unable to reach the server. Check your connection.'); }
+    finally { b.disabled = false; b.textContent = 'Start recount →'; }
+  }
+  function renderForm() {
+    document.getElementById('rc-login').style.display = 'none';
+    const f = document.getElementById('rc-form'); f.style.display = 'block';
+    f.innerHTML = items.map((it, i) => {
+      const cur = it.category === 'Forex Cash' ? CURRENCIES.find(c => c.code === it.currency) : null;
+      if (cur) return `<div class="field-group"><label class="field-label">${esc(cur.flag)} ${esc(it.label)} — count by denomination</label>
+        <div class="denom-table">${cur.denoms.map(d => `<div class="denom-row"><span class="denom-label">${esc(d.l)}</span>
+          <input class="denom-input rc-d" data-i="${i}" data-v="${d.v}" type="number" min="0" placeholder="0"><span class="denom-sub"></span></div>`).join('')}</div>
+        <div style="text-align:right;font-weight:700;margin-top:6px">Total: <span id="rc-t-${i}">0</span> ${esc(it.currency)}</div></div>`;
+      const qty = it.category === 'Scratch Physical Inventory';
+      return `<div class="field-group"><label class="field-label">${esc(it.label)}${qty ? ' (pcs)' : ' (amount)'}</label>
+        <input class="rc-a" data-i="${i}" type="number" min="0" step="${qty ? 1 : 0.01}" placeholder="0"
+          style="width:100%;padding:11px 14px;border-radius:9px;border:1.5px solid #e2e8f0;font-size:18px"></div>`;
+    }).join('') + `<span class="error" id="rc-err2"></span><button class="btn-primary" id="rc-submit" style="margin-top:10px">Submit recount</button>`;
+    f.querySelectorAll('.rc-d').forEach(inp => inp.oninput = () => {
+      const i = inp.dataset.i; let t = 0;
+      f.querySelectorAll(`.rc-d[data-i="${i}"]`).forEach(x => { t += (Number(x.value) || 0) * Number(x.dataset.v); });
+      document.getElementById('rc-t-' + i).textContent = (Math.round(t * 100) / 100).toLocaleString('en-PH', { maximumFractionDigits: 2 });
+    });
+    document.getElementById('rc-submit').onclick = submit;
+  }
+  async function submit() {
+    const f = document.getElementById('rc-form'), e2 = document.getElementById('rc-err2'), values = {};
+    for (let i = 0; i < items.length; i++) {
+      const ds = f.querySelectorAll(`.rc-d[data-i="${i}"]`);
+      if (ds.length) {
+        if (![...ds].some(x => x.value !== '')) { e2.textContent = `Count ${items[i].label} first.`; return; }
+        let t = 0; ds.forEach(x => { t += (Number(x.value) || 0) * Number(x.dataset.v); });
+        values[items[i].key] = Math.round(t * 100) / 100;
+      } else {
+        const a = f.querySelector(`.rc-a[data-i="${i}"]`);
+        if (!a || a.value === '') { e2.textContent = `Enter ${items[i].label}.`; return; }
+        values[items[i].key] = Number(a.value);
+      }
+    }
+    if (!confirm('Submit this recount? You can only recount once.')) return;
+    const b = document.getElementById('rc-submit'); b.disabled = true; b.textContent = 'Saving…'; e2.textContent = '';
+    try {
+      const r = await api({ action: 'submit', values });
+      if (!r.ok) { e2.textContent = r.error || 'Could not save the recount.'; return; }
+      f.style.display = 'none';
+      const d = document.getElementById('rc-done'); d.style.display = 'block';
+      if (r.matched) { d.style.background = '#f0fdf4'; d.style.border = '1.5px solid #16a34a'; d.innerHTML = '✅ <b>Recount saved.</b> It now matches the last closing.'; }
+      else { d.style.background = '#FFF4D6'; d.style.border = '1.5px solid #E8C25A'; d.innerHTML = `⚠️ <b>Recount saved.</b> It still does not match the last closing for: ${esc((r.still || []).join(', '))}. Please explain in the group.`; }
+    } catch (e) { e2.textContent = 'Unable to reach the server.'; }
+    finally { b.disabled = false; b.textContent = 'Submit recount'; }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start); else start();
+})();
+</script>
 </body>
 </html>
