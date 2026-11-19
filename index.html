@@ -2003,7 +2003,23 @@ function toggleCur(code, btn) {
 // Picture of the note beside its denomination (files in /img/notes/<CODE>-<value>.jpg). Add a value here when its picture is added.
 const DENOM_IMG = { PHP: [1000, 500, 200, 100, 50, 20, 10, 5, 1, 0.25, 0.1, 0.05, 0.01], USD: [100, 50, 20, 10, 5, 2, 1] };
 function denomImg(code, v) {
-  return (DENOM_IMG[code] || []).includes(v) ? `<img src="/img/notes/${code}-${v}.jpg" alt="" loading="lazy" style="height:34px;width:auto;border-radius:4px;vertical-align:middle;margin-right:10px;box-shadow:0 0 0 1px #e2e8f0">` : '';
+  return (DENOM_IMG[code] || []).includes(v) ? `<img src="/img/notes/${code}-${v}.jpg" alt="" loading="lazy" onclick="zoomNote('${code}',${v})" title="Tap to enlarge" style="height:34px;width:auto;border-radius:4px;vertical-align:middle;margin-right:10px;box-shadow:0 0 0 1px #e2e8f0;cursor:zoom-in">` : '';
+}
+// Tap a note picture: show it large (for tellers who need a bigger view). Tap anywhere to close.
+function zoomNote(code, v) {
+  const cur = CURRENCIES.find(c => c.code === code), d = cur && cur.denoms.find(x => x.v === v);
+  let ov = document.getElementById('note-zoom');
+  if (!ov) {
+    ov = document.createElement('div'); ov.id = 'note-zoom';
+    ov.style.cssText = 'position:fixed;inset:0;z-index:9999;background:rgba(10,15,25,.88);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:16px;cursor:zoom-out';
+    ov.onclick = () => { ov.style.display = 'none'; };
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') ov.style.display = 'none'; });
+    document.body.appendChild(ov);
+  }
+  ov.innerHTML = `<img src="/img/notes/${code}-${v}-lg.jpg" alt="" style="max-width:96vw;max-height:72vh;border-radius:10px;box-shadow:0 10px 40px rgba(0,0,0,.5);background:#fff">
+    <div style="margin-top:18px;color:#fff;font-size:44px;font-weight:800;letter-spacing:1px">${d ? d.l : ''} <span style="font-size:24px;opacity:.75">${code}</span></div>
+    <div style="margin-top:8px;color:#cbd5e1;font-size:15px">Tap anywhere to close</div>`;
+  ov.style.display = 'flex';
 }
 function buildDenomSections() {
   const container = document.getElementById("denom-sections");
