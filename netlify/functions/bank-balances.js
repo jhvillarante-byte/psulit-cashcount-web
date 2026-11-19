@@ -12,6 +12,14 @@ function isUploader(name) {
   return uploaderNames().some(u => n.includes(u));
 }
 
+// Monday of the current week in Philippine time (YYYY-MM-DD). The weekly bank proof is due on Jazelle's first count of each week.
+function weekStartPH() {
+  const ph = new Date(Date.now() + 8 * 3600 * 1000); // shift to UTC+8, then read UTC fields
+  const dow = (ph.getUTCDay() + 6) % 7; // Mon=0
+  const mon = new Date(Date.UTC(ph.getUTCFullYear(), ph.getUTCMonth(), ph.getUTCDate() - dow));
+  return mon.toISOString().slice(0, 10);
+}
+
 exports.isUploader = isUploader;
 exports.handler = async (event) => {
   const wrong = requirePost(event);
@@ -24,16 +32,17 @@ exports.handler = async (event) => {
   if (!branch) return json(400, { ok: false, error: "Unknown branch." });
 
   const canEdit = isUploader(session.teller);
+  const weekStart = weekStartPH();
   const readerUrl = process.env.AUDIT_READER_URL, secret = process.env.AUDIT_READER_SECRET;
-  if (!readerUrl || !secret) return json(200, { ok: true, canEdit, balances: [], source: "none", warning: "Audit Reader not configured." });
+  if (!readerUrl || !secret) return json(200, { ok: true, canEdit, weekStart, proofDone: false, balances: [], source: "none", warning: "Audit Reader not configured." });
   try {
     const url = readerUrl + (readerUrl.includes("?") ? "&" : "?") + "action=bankBalances&branch=" + encodeURIComponent(branch) + "&secret=" + encodeURIComponent(secret);
     const res = await fetch(url);
     const text = await res.text();
     let out = {}; try { out = JSON.parse(text); } catch (_) {}
-    if (res.ok && out && out.ok === true && Array.isArray(out.balances)) return json(200, { ok: true, canEdit, balances: out.balances, source: "sheet" });
-    return json(200, { ok: true, canEdit, balances: [], source: "none", warning: String((out && out.error) || "Reader did not return bank balances.") });
+    if (res.ok && out && out.ok === true && Array.isArray(out.balances)) return json(200, { ok: true, canEdit, weekStart, lastProof: out.lastProof || "", proofDone: !!out.lastProof && String(out.lastProof) >= weekStart, balances: out.balances, source: "sheet" });
+    return json(200, { ok: true, canEdit, weekStart, proofDone: false, balances: [], source: "none", warning: String((out && out.error) || "Reader did not return bank balances.") });
   } catch (error) {
-    return json(200, { ok: true, canEdit, balances: [], source: "none", warning: error instanceof Error ? error.message : String(error) });
+    return json(200, { ok: true, canEdit, weekStart, proofDone: false, balances: [], source: "none", warning: error instanceof Error ? error.message : String(error) });
   }
 };

@@ -446,8 +446,8 @@
     <div id="bank-list"></div>
     <button id="bank-add-btn" onclick="addEntry('bank')" style="background:none;border:1.5px dashed #94a3b8;border-radius:9px;padding:10px 16px;color:#64748b;font-size:13px;font-weight:700;cursor:pointer;width:100%;margin-top:6px;">+ Add Bank Balance</button>
     <div id="bank-proof-box" style="display:none;margin-top:16px;background:#f0f9ff;border:1.5px solid #bae6fd;border-radius:12px;padding:14px;">
-      <div style="font-weight:800;font-size:14px;color:#075985;">📸 Monday bank proof</div>
-      <p style="font-size:12.5px;color:#475569;margin:6px 0 10px;line-height:1.45;">Every Monday, screenshot each bank account's balance as proof. These are for proof only — they are not added to any total. If a balance is unchanged, leave it as is (no adjustment).</p>
+      <div style="font-weight:800;font-size:14px;color:#075985;">📸 Weekly bank proof</div>
+      <p style="font-size:12.5px;color:#475569;margin:6px 0 10px;line-height:1.45;">This is your first count of the week: screenshot each bank account's balance as proof. These are for proof only — they are not added to any total. If a balance is unchanged, leave it as is (no adjustment).</p>
       <div id="bank-proof-done" style="display:none;font-size:13px;font-weight:700;color:#16a34a;margin-bottom:8px;">✓ This week's proof was already sent today.</div>
       <label for="bank-proof-file" style="display:block;text-align:center;background:#0369a1;color:#fff;border-radius:9px;padding:11px;font-size:14px;font-weight:700;cursor:pointer;">+ Add screenshot(s)</label>
       <input type="file" id="bank-proof-file" accept="image/*" multiple style="display:none" onchange="addBankProofFiles(this)">
@@ -1339,15 +1339,16 @@ let bankCount = 0;
 
 // ── MONDAY BANK PROOF ─────────────────────────────
 let bankProof = []; // [{name, dataUrl}] — compressed screenshots, proof only (never totalled)
-function isMondayPH() { try { return new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Manila',weekday:'long'}).format(new Date()) === 'Monday'; } catch(e) { return false; } }
 function phDateStr() { try { return new Intl.DateTimeFormat('en-CA',{timeZone:'Asia/Manila'}).format(new Date()); } catch(e) { return ''; } }
-function bankProofKey() { return `psulit_bankproof_${state.branch}_${phDateStr()}`; }
-function bankProofAlreadySent() { try { return !!localStorage.getItem(bankProofKey()); } catch(e) { return false; } }
-function bankProofRequired() { return isMondayPH() && !!state.bankCanEdit && !bankProofAlreadySent(); }
+// The proof is due on the bank-uploader's first count of each week (Mon–Sun, Philippine time) and disappears once it is posted.
+function weekStartStr() { const d = new Date(phDateStr() + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7)); return d.toISOString().slice(0,10); }
+function bankProofKey() { return `psulit_bankproof_${state.branch}_${state.bankWeekStart || weekStartStr()}`; }
+function bankProofAlreadySent() { if(state.bankProofDone) return true; try { return !!localStorage.getItem(bankProofKey()); } catch(e) { return false; } }
+function bankProofRequired() { return !!state.bankCanEdit && !bankProofAlreadySent(); }
 function renderBankProofBox() {
   const box = document.getElementById('bank-proof-box'); if(!box) return;
-  box.style.display = (isMondayPH() && state.bankCanEdit) ? 'block' : 'none';
-  document.getElementById('bank-proof-done').style.display = bankProofAlreadySent() ? 'block' : 'none';
+  box.style.display = (state.bankCanEdit && !bankProofAlreadySent()) ? 'block' : 'none';
+  document.getElementById('bank-proof-done').style.display = 'none';
   const list = document.getElementById('bank-proof-list');
   list.innerHTML = bankProof.map((p,i) => `<div style="position:relative;"><img src="${p.dataUrl}" style="width:78px;height:78px;object-fit:cover;border-radius:8px;border:1.5px solid #cbd5e1;"><button onclick="removeBankProof(${i})" style="position:absolute;top:-6px;right:-6px;width:22px;height:22px;border-radius:50%;border:none;background:#dc2626;color:#fff;font-weight:800;cursor:pointer;">×</button></div>`).join('');
 }
@@ -1378,7 +1379,7 @@ async function addBankProofFiles(input) {
 function bankContinue() {
   if(bankProofRequired()) {
     const err = document.getElementById('err-bank-proof');
-    if(!bankProof.length) { err.textContent = 'Monday: add a screenshot of the bank balances first.'; return; }
+    if(!bankProof.length) { err.textContent = 'Add a screenshot of the bank balances first.'; return; }
     if(!document.getElementById('bank-proof-confirm').checked) { err.textContent = 'Tick the box to confirm the screenshots match the balances.'; return; }
   }
   goTo(7);
@@ -1392,7 +1393,7 @@ async function sendBankProof() {
     body: JSON.stringify({ branch: state.branch, teller: state.teller, date: phDateStr(), banks, images: bankProof.map(p => p.dataUrl) })
   });
   const data = await res.json().catch(() => ({}));
-  if(res.ok && data.ok) { try { localStorage.setItem(bankProofKey(), '1'); } catch(e) {} bankProof = []; }
+  if(res.ok && data.ok) { try { localStorage.setItem(bankProofKey(), '1'); } catch(e) {} state.bankProofDone = true; bankProof = []; }
   return data;
 }
 
@@ -1771,6 +1772,8 @@ async function loadBankStep() {
     const data = await res.json().catch(()=>({}));
     if(res.ok && data.ok) {
       state.bankCanEdit = !!data.canEdit;
+      state.bankWeekStart = data.weekStart || '';
+      state.bankProofDone = !!data.proofDone;
       if(Array.isArray(data.balances) && data.balances.length && list.children.length === 0) {
         data.balances.forEach(e => {
           const id = `bank-${++bankCount}`;
@@ -1790,7 +1793,7 @@ function applyBankEditMode() {
   const can = !!state.bankCanEdit;
   const add = document.getElementById('bank-add-btn'); if(add) add.style.display = can ? 'block' : 'none';
   const sub = document.getElementById('bank-sub');
-  if(sub) sub.textContent = can ? 'Balances are carried forward from the previous cash count. Edit only if there are changes (Monday: add the bank screenshots below).' : 'Bank balances are updated by Jazelle every Monday and filled in automatically. Nothing to enter here — just tap Continue.';
+  if(sub) sub.textContent = can ? 'Balances are carried forward from the previous cash count. Edit only if there are changes (first count of the week: add the bank screenshots below).' : 'Bank balances are updated by Jazelle every week and filled in automatically. Nothing to enter here — just tap Continue.';
 }
 
 function retryAutoReceivables() {
@@ -2214,7 +2217,7 @@ ${line}
   // Bank Balances
   const bankEntries = getEntries('bank');
   if(bankEntries.length > 0) {
-    if(bankProof.length) msg += `${line}\n🧾 Monday bank proof: ✓ ${bankProof.length} screenshot${bankProof.length>1?'s':''} sent to Telegram\n`;
+    if(bankProof.length) msg += `${line}\n🧾 Weekly bank proof: ✓ ${bankProof.length} screenshot${bankProof.length>1?'s':''} sent to Telegram\n`;
     msg += `${line}\n🏦 Bank Balances\n`;
     bankEntries.forEach(e => {
       const sym = e.cur === 'PHP' ? '₱' : e.cur + ' ';
@@ -2513,7 +2516,7 @@ function resetForm() {
   state.authorizedBranches=[];
   resetRecPay();
   bankProof = [];
-  state.bankCanEdit = undefined;
+  state.bankCanEdit = undefined; state.bankProofDone = false; state.bankWeekStart = '';
   document.getElementById("bank-list").innerHTML = ""; bankCount = 0;
   document.getElementById("teller-name-display").style.display="none";
   document.getElementById("cctv-confirm").checked=false;
