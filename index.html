@@ -2000,6 +2000,11 @@ function toggleCur(code, btn) {
   updateAllCurSummary();
 }
 
+// Picture of the note beside its denomination (files in /img/notes/<CODE>-<value>.jpg). Add a value here when its picture is added.
+const DENOM_IMG = { PHP: [20, 50, 100, 500, 1000] };
+function denomImg(code, v) {
+  return (DENOM_IMG[code] || []).includes(v) ? `<img src="/img/notes/${code}-${v}.jpg" alt="" loading="lazy" style="height:34px;width:auto;border-radius:4px;vertical-align:middle;margin-right:10px;box-shadow:0 0 0 1px #e2e8f0">` : '';
+}
 function buildDenomSections() {
   const container = document.getElementById("denom-sections");
   container.innerHTML="";
@@ -2009,7 +2014,7 @@ function buildDenomSections() {
     div.id="denom-sec-"+cur.code;
     let html=`<div class="denom-table"><div class="denom-header"><span>${cur.flag} ${cur.name} (${cur.code})</span><span>Qty (pcs)</span><span>Subtotal</span></div>`;
     cur.denoms.forEach(d=>{
-      html+=`<div class="denom-row"><span class="denom-label">${d.l}</span><input class="denom-input" type="number" min="0" placeholder="0" id="denom-${cur.code}-${d.v}" oninput="updateTotals('${cur.code}')"><span class="denom-sub" id="sub-${cur.code}-${d.v}">—</span></div>`;
+      html+=`<div class="denom-row"><span class="denom-label">${denomImg(cur.code,d.v)}${d.l}</span><input class="denom-input" type="number" min="0" placeholder="0" id="denom-${cur.code}-${d.v}" oninput="updateTotals('${cur.code}')"><span class="denom-sub" id="sub-${cur.code}-${d.v}">—</span></div>`;
     });
     html+=`<div class="denom-total"><span>TOTAL ${cur.code}</span><span></span><span class="total-amt" id="total-${cur.code}">${fmt(cur.code,0)}</span></div></div>`;
     div.innerHTML=html;
@@ -2658,7 +2663,7 @@ buildCCTV();
     f.innerHTML = items.map((it, i) => {
       const cur = it.category === 'Forex Cash' ? CURRENCIES.find(c => c.code === it.currency) : null;
       if (cur) return `<div class="field-group"><label class="field-label">${esc(cur.flag)} ${esc(it.label)} — count by denomination</label>
-        <div class="denom-table">${cur.denoms.map(d => `<div class="denom-row"><span class="denom-label">${esc(d.l)}</span>
+        <div class="denom-table">${cur.denoms.map(d => `<div class="denom-row"><span class="denom-label">${denomImg(it.currency, d.v)}${esc(d.l)}</span>
           <input class="denom-input rc-d" data-i="${i}" data-v="${d.v}" type="number" min="0" placeholder="0"><span class="denom-sub"></span></div>`).join('')}</div>
         <div style="text-align:right;font-weight:700;margin-top:6px">Total: <span id="rc-t-${i}">0</span> ${esc(it.currency)}</div></div>`;
       const qty = it.category === 'Scratch Physical Inventory';
