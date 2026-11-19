@@ -108,15 +108,17 @@ exports.handler = async (event) => {
   // Alphaland count: record the Solaire bank rows here (a Solaire count records them through its own report).
   let sheet = null;
   if (countBranch === "Alphaland" && banks.length) {
-    const now = new Date().toISOString();
+    // Same "MM/DD/YYYY, HH:mm:ss" Philippine-time format the Cash Count rows use.
+    const parts = Object.fromEntries(new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Manila", year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", second: "2-digit", hourCycle: "h23" }).formatToParts(new Date()).map(p => [p.type, p.value]));
+    const now = `${parts.month}/${parts.day}/${parts.year}, ${parts.hour}:${parts.minute}:${parts.second}`;
     const reference = `BANK-${date}-${Date.now().toString(36).toUpperCase()}`;
     const common = { submittedAt: now, businessDate: date, branch: "Solaire", countType: "", shift: "", teller, reference, sourceApp: "Cash Count App (bank, from Alphaland)" };
     const rows = [];
     banks.forEach(b => {
       const cur = String(b.cur || "PHP").toUpperCase();
       const amount = Number(b.amt) || 0;
-      rows.push({ syncKey: `${reference}:BANK-BALANCE-${slug(b.name)}-${cur}`, ...common, category: "Bank Balance", currency: cur, fundAccount: String(b.name).trim(), amount, phpEquivalent: cur === "PHP" ? amount : "", quantityUnits: "", notes: String(b.reason || "") });
-      if (images.length) rows.push({ syncKey: `${reference}:BANK-PROOF-${slug(b.name)}-${cur}`, ...common, category: "Bank Proof", currency: cur, fundAccount: String(b.name).trim(), amount, phpEquivalent: "", quantityUnits: "", notes: "Weekly screenshot proof sent to Telegram (proof only, not totalled)" });
+      rows.push({ syncKey: `${reference}:BANK-BALANCE-${slug(b.name).toUpperCase()}-${cur}`, ...common, category: "Bank Balance", currency: cur, fundAccount: String(b.name).trim(), amount, phpEquivalent: cur === "PHP" ? amount : "", quantityUnits: "", notes: String(b.reason || "") });
+      if (images.length) rows.push({ syncKey: `${reference}:BANK-PROOF-${slug(b.name).toUpperCase()}-${cur}`, ...common, category: "Bank Proof", currency: cur, fundAccount: String(b.name).trim(), amount, phpEquivalent: "", quantityUnits: "", notes: "Weekly screenshot proof sent to Telegram (proof only, not totalled)" });
     });
     sheet = await syncSolaireRows(rows);
     if (sheet.status !== "synced") return json(502, { ok: false, sent, error: `Screenshots sent, but the sheet was not updated (${sheet.error || sheet.status}). Tell the owner.` });
