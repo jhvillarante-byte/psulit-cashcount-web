@@ -293,6 +293,7 @@ async function sendTextFallback({ token, chatId, threadId, text }) {
   return result.result && result.result.message_id;
 }
 
+exports.buildCashCountRows = buildCashCountRows;
 exports.handler = async (event) => {
   const wrongMethod = requirePost(event);
   if (wrongMethod) return wrongMethod;

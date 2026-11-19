@@ -434,6 +434,7 @@
 
 
 
+    <div id="handover-warning" style="display:none;margin-top:16px;padding:12px 14px;border-radius:10px;background:#FFF4D6;border:1px solid #E8C25A;color:#6B4A00;font-size:14px;line-height:1.45"></div>
     <div class="btn-row" style="margin-top:16px">      <button class="btn-secondary" onclick="goTo(3)">← Back</button>
       <button class="btn-primary" onclick="validateScratchAndContinue()" style="flex:1">Continue →</button>
     </div>
@@ -844,7 +845,7 @@ function validateScratchAndContinue() {
   const lottomatikResult = alphalandOnly ? validateLottomatikWallet() : { valid: true, errors: {} };
   const lottomatikCashResult = alphalandOnly ? validateLottomatikCash() : { valid: true, errors: {} };
   const thermalResult = alphalandOnly ? validateLottomatikThermalRolls() : { valid: true, errors: {} };
-  if(scratchResult.valid && winningCardsResult.valid && lottomatikResult.valid && lottomatikCashResult.valid && thermalResult.valid) goTo(6);
+  if(scratchResult.valid && winningCardsResult.valid && lottomatikResult.valid && lottomatikCashResult.valid && thermalResult.valid) handoverGate(() => goTo(6));
   else {
     switchMainTab('others');
     if(!scratchResult.valid || !winningCardsResult.valid) switchOtherTab('scratch');
@@ -1417,6 +1418,28 @@ async function addBankProofFiles(input, si) {
   input.value = '';
   document.getElementById('err-bank-proof').textContent = '';
   renderBankProofBox();
+}
+// Opening only: compare the count with the branch's last Closing and ask for ONE recount if something differs.
+// The closing amounts are never shown. After the recount the teller can continue either way; a remaining difference is flagged in the report.
+async function handoverGate(proceed) {
+  const box = document.getElementById('handover-warning');
+  if(box) box.style.display = 'none';
+  if(state.openClosing !== 'Opening') { state.handoverFlag = null; proceed(); return; }
+  let res = null;
+  try {
+    const report = await buildReport(false);
+    const r = await fetch(`${BACKEND}/handover-check`, { method:'POST', headers:{'Content-Type':'application/json','Authorization':`Bearer ${state.sessionToken}`}, body: JSON.stringify({ branch: state.branch, report }) });
+    res = await r.json().catch(() => null);
+  } catch(e) { res = null; }
+  const list = res && res.ok && res.checked && Array.isArray(res.mismatches) ? res.mismatches : [];
+  if(!list.length) { state.handoverFlag = null; state.handoverTries = 0; proceed(); return; }
+  state.handoverTries = (state.handoverTries || 0) + 1;
+  if(state.handoverTries >= 2) { state.handoverFlag = list; proceed(); return; }
+  if(box) {
+    box.textContent = 'Your count does not match the last Closing for: ' + list.join(', ') + '. Please count these again carefully, correct them if needed, then tap Continue.';
+    box.style.display = 'block';
+    box.scrollIntoView({ behavior:'smooth', block:'center' });
+  }
 }
 function bankContinue() {
   if(bankProofRequired()) {
@@ -2186,6 +2209,8 @@ ${line}
 `;
   msg += `👤 Teller: ${state.teller}
 `;
+  if(state.handoverFlag && state.handoverFlag.length) msg += `⚠️ Opening differs from the last Closing after a recount: ${state.handoverFlag.join(', ')}
+`;
   msg += `🕐 Timestamp: ${state.timestamp}
 `;
   msg += `🔑 Ref Code: ${state.uniqueCode}
@@ -2559,6 +2584,7 @@ async function handleSubmit() {
 }
 
 function resetForm() {
+  state.handoverTries = 0; state.handoverFlag = null;
   document.getElementById("main-card").style.display="block";
   document.getElementById("success-card").style.display="none";
   document.getElementById("teller-pin").value="";
