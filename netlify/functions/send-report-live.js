@@ -200,6 +200,8 @@ function buildCashCountRows(message, branch) {
   const bankProofSent = /Weekly bank proof:\s*✓/i.test(text);
   let section = "";
   for (const line of lines) {
+    const thermal = line.match(/^(?:LottoMatik\s+)?(?:Sealed\s+)?Thermal Rolls(?:\s+on Hand)?:\s*(\d+)\s*rolls?/i);
+    if (thermal) { addRow("LOTTOMATIK-THERMAL-ROLLS-SEALED", { category: "LottoMatik Thermal Rolls (Sealed)", currency: "", fundAccount: "Thermal Rolls", amount: "", phpEquivalent: "", quantityUnits: Number(thermal[1]), notes: "sealed (unopened) rolls counted" }); continue; }
     if (/Bank Balances/i.test(line)) { section = "bank"; continue; }
     if (/Receivables\s+—\s+Owed to\s+/i.test(line)) { section = "receivable"; continue; }
     if (/Payables\s+—\s+Owed by\s+/i.test(line)) { section = "payable"; continue; }
