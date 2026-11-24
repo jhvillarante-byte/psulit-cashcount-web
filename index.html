@@ -2584,6 +2584,36 @@ async function handleSubmit() {
 }
 
 
+
+// ── AUTO-UPDATE ───────────────────────────────────
+// An open tab checks every few minutes (and whenever it comes back to the screen) whether a newer version of the
+// app is live. It reloads itself only at a safe moment — the PIN screen, the "sent" screen, or when New Submission
+// is tapped — so a count in progress is never lost.
+let appBaseline = null, appUpdateReady = false;
+function appHash(t) { let h = 0; for (let i = 0; i < t.length; i++) h = (h * 31 + t.charCodeAt(i)) | 0; return h; }
+async function appFetchHash() {
+  const r = await fetch(location.pathname + '?v=' + Date.now(), { cache: 'no-store' });
+  if (!r.ok) return null;
+  return appHash(await r.text());
+}
+function appAtSafePoint() {
+  const success = document.getElementById('success-card');
+  if (success && success.style.display === 'block') return true;
+  const step1 = document.getElementById('step-1');
+  return !!(step1 && step1.classList.contains('active'));
+}
+async function appCheckUpdate() {
+  try {
+    const h = await appFetchHash();
+    if (h === null) return;
+    if (appBaseline === null) { appBaseline = h; return; }
+    if (h !== appBaseline) { appUpdateReady = true; if (appAtSafePoint()) location.reload(); }
+  } catch (e) {}
+}
+appCheckUpdate();
+setInterval(appCheckUpdate, 5 * 60 * 1000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) appCheckUpdate(); });
+
 // Every cash count starts blank: nothing is carried over from the previous count (Forex, Hive/MB, JuanPay,
 // Scratch, LottoMatik, AR booklets). Tellers must count the actual cash each time.
 function clearAllCountInputs() {
@@ -2602,6 +2632,7 @@ document.addEventListener('focusin', e => { const t = e.target; if(t && t.tagNam
 document.querySelectorAll('form').forEach(f => f.setAttribute('autocomplete', 'off'));
 
 function resetForm() {
+  if (appUpdateReady) { location.reload(); return; }
   document.getElementById("main-card").style.display="block";
   document.getElementById("success-card").style.display="none";
   document.getElementById("teller-pin").value="";
