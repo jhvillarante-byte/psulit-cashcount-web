@@ -7,6 +7,8 @@
     Object.freeze({ key: "scratch_go_banana", label: "Go Banana" }),
     Object.freeze({ key: "scratch_red_hot_7", label: "Red Hot 7" }),
     Object.freeze({ key: "scratch_go_for_gold", label: "Go For Gold" }),
+    Object.freeze({ key: "scratch_super_go_banana", label: "Super Go Banana" }),
+    Object.freeze({ key: "scratch_ruby_riches", label: "Ruby Riches" }),
   ]);
   const LOTTOMATIK_DENOMS = Object.freeze([1000, 500, 200, 100, 50, 20, 10, 5, 1]);
 

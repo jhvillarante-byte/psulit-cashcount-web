@@ -402,7 +402,9 @@
       <p style="font-size:12px;color:#64748b;margin-bottom:14px;">Enter the number of winning cards presented for payout today only. Do not include cards from previous days. Enter 0 if there are none.</p>
       <div class="field-group"><label class="field-label" for="winning_cards_go_banana">Go Banana — winning cards</label><input class="denom-input" style="width:100%;text-align:left;" type="number" inputmode="numeric" min="0" step="1" id="winning_cards_go_banana" placeholder="Required"><span class="error" id="err-winning_cards_go_banana"></span></div>
       <div class="field-group"><label class="field-label" for="winning_cards_red_hot_7">Red Hot 7 — winning cards</label><input class="denom-input" style="width:100%;text-align:left;" type="number" inputmode="numeric" min="0" step="1" id="winning_cards_red_hot_7" placeholder="Required"><span class="error" id="err-winning_cards_red_hot_7"></span></div>
-      <div class="field-group" style="margin-bottom:0;"><label class="field-label" for="winning_cards_go_for_gold">Go For Gold — winning cards</label><input class="denom-input" style="width:100%;text-align:left;" type="number" inputmode="numeric" min="0" step="1" id="winning_cards_go_for_gold" placeholder="Required"><span class="error" id="err-winning_cards_go_for_gold"></span></div>
+      <div class="field-group"><label class="field-label" for="winning_cards_go_for_gold">Go For Gold — winning cards</label><input class="denom-input" style="width:100%;text-align:left;" type="number" inputmode="numeric" min="0" step="1" id="winning_cards_go_for_gold" placeholder="Required"><span class="error" id="err-winning_cards_go_for_gold"></span></div>
+      <div class="field-group"><label class="field-label" for="winning_cards_super_go_banana">Super Go Banana — winning cards</label><input class="denom-input" style="width:100%;text-align:left;" type="number" inputmode="numeric" min="0" step="1" id="winning_cards_super_go_banana" placeholder="Required"><span class="error" id="err-winning_cards_super_go_banana"></span></div>
+      <div class="field-group" style="margin-bottom:0;"><label class="field-label" for="winning_cards_ruby_riches">Ruby Riches — winning cards</label><input class="denom-input" style="width:100%;text-align:left;" type="number" inputmode="numeric" min="0" step="1" id="winning_cards_ruby_riches" placeholder="Required"><span class="error" id="err-winning_cards_ruby_riches"></span></div>
     </div>
 
     <div id="scratch-physical-section" style="display:none;margin-top:20px;padding:16px;border:1.5px solid #e2e8f0;border-radius:10px;background:#f8fafc;">
@@ -422,6 +424,16 @@
         <label class="field-label" for="scratch_go_for_gold">Go For Gold — pcs</label>
         <input class="denom-input" style="width:100%;text-align:left;" type="number" inputmode="numeric" min="0" step="1" id="scratch_go_for_gold" placeholder="Required">
         <span class="error" id="err-scratch_go_for_gold"></span>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="scratch_super_go_banana">Super Go Banana — pcs</label>
+        <input class="denom-input" style="width:100%;text-align:left;" type="number" inputmode="numeric" min="0" step="1" id="scratch_super_go_banana" placeholder="Required">
+        <span class="error" id="err-scratch_super_go_banana"></span>
+      </div>
+      <div class="field-group">
+        <label class="field-label" for="scratch_ruby_riches">Ruby Riches — pcs</label>
+        <input class="denom-input" style="width:100%;text-align:left;" type="number" inputmode="numeric" min="0" step="1" id="scratch_ruby_riches" placeholder="Required">
+        <span class="error" id="err-scratch_ruby_riches"></span>
       </div>
       <div style="margin-top:16px;padding-top:16px;border-top:1.5px solid #e2e8f0;">
         <h4 style="font-size:13px;font-weight:700;color:#1e3a5f;margin-bottom:12px;">💰 CASH</h4>
@@ -734,7 +746,9 @@ function refreshWinningCardsCount() {
 const WINNING_CARD_FIELDS = [
   {key:"winning_cards_go_banana",label:"Go Banana"},
   {key:"winning_cards_red_hot_7",label:"Red Hot 7"},
-  {key:"winning_cards_go_for_gold",label:"Go For Gold"}
+  {key:"winning_cards_go_for_gold",label:"Go For Gold"},
+  {key:"winning_cards_super_go_banana",label:"Super Go Banana"},
+  {key:"winning_cards_ruby_riches",label:"Ruby Riches"}
 ];
 function clearWinningCardsErrors() {
   WINNING_CARD_FIELDS.forEach(({key}) => { const e=document.getElementById("err-"+key); if(e) e.textContent=""; });

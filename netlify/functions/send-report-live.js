@@ -218,13 +218,13 @@ function buildCashCountRows(message, branch) {
     }
     if (section === "scratchWinning") {
       // Winning cards presented today, per game — compared by the audit with the Scratch live sheet's payouts.
-      const win = line.match(/^(Go Banana|Red Hot 7|Go For Gold):\s*(\d+)\s*cards?/i);
+      const win = line.match(/^(Super Go Banana|Ruby Riches|Go Banana|Red Hot 7|Go For Gold):\s*(\d+)\s*cards?/i);
       if (!win) continue;
       addRow(`SCRATCH-WINNING-CARDS-${slug(win[1])}`, { category: "Scratch Winning Cards", currency: "", fundAccount: win[1], amount: "", phpEquivalent: "", quantityUnits: Number(win[2]), notes: "winning cards presented today" });
       continue;
     }
     if (section === "scratchPhysical") {
-      const scratch = line.match(/^(Go Banana|Red Hot 7|Go For Gold):\s*(\d+)\s*pcs/i);
+      const scratch = line.match(/^(Super Go Banana|Ruby Riches|Go Banana|Red Hot 7|Go For Gold):\s*(\d+)\s*pcs/i);
       if (!scratch) continue;
       addRow(`SCRATCH-PHYSICAL-${slug(scratch[1])}`, { category: "Scratch Physical Inventory", currency: "", fundAccount: scratch[1], amount: "", phpEquivalent: "", quantityUnits: Number(scratch[2]), notes: "physical cards" });
     }
