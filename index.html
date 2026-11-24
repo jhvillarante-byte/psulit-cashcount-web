@@ -694,7 +694,7 @@ function goStep3() {
   let ok=true;
   if(!state.cctvCam){ document.getElementById("err-cctv").textContent="Select CCTV camera used"; ok=false; } else document.getElementById("err-cctv").textContent="";
   if(!document.getElementById("cctv-confirm").checked){ document.getElementById("err-cctv-confirm").textContent="You must confirm cash was counted in front of CCTV"; ok=false; } else document.getElementById("err-cctv-confirm").textContent="";
-  if(ok){ buildCurrencyGrid(); initHiveCurrencyDropdown(); goTo(4); refreshOthersByBranch(); refreshScratchByBranch(); loadLottomatikCarryForward(); }
+  if(ok){ buildCurrencyGrid(); initHiveCurrencyDropdown(); goTo(4); refreshOthersByBranch(); refreshScratchByBranch(); }
 }
 
 function isOtherSelected(itemId) {
@@ -2583,6 +2583,24 @@ async function handleSubmit() {
   window.scrollTo(0,0);
 }
 
+
+// Every cash count starts blank: nothing is carried over from the previous count (Forex, Hive/MB, JuanPay,
+// Scratch, LottoMatik, AR booklets). Tellers must count the actual cash each time.
+function clearAllCountInputs() {
+  document.querySelectorAll('#main-card .denom-input').forEach(i => { i.value = ''; });
+  ['ar_booklets_remaining','lottomatik-wallet-balance','lottomatik-thermal-rolls','scratch_cash'].forEach(id => { const el = document.getElementById(id); if(el) el.value = ''; });
+  try { Object.keys(hiveCounts).forEach(k => { hiveCounts[k] = {}; }); hiveCurrency = 'PHP'; hiveActiveCurrencies = ['PHP']; } catch(e) {}
+  try { state.activeCurrencies = ['PHP']; state.activeCurTab = 'PHP'; } catch(e) {}
+  try { ALL_OTHER_ITEMS.forEach(id => document.getElementById('other-btn-' + id)?.classList.remove('selected')); rebuildOtherTabs(null); } catch(e) {}
+  try { const hd = document.getElementById('hive-denom-sections'); if(hd) hd.innerHTML = ''; const ht = document.getElementById('hive-tab-row'); if(ht) ht.innerHTML = ''; } catch(e) {}
+  try { localStorage.removeItem(lottomatikCarryKey('Alphaland')); localStorage.removeItem(lottomatikCarryKey('Solaire')); } catch(e) {}
+}
+// Browsers can refill a page's boxes when it is reopened from history; start clean every time.
+window.addEventListener('pageshow', () => { try { clearAllCountInputs(); } catch(e) {} });
+// Stop the browser (phone, desktop or laptop) from suggesting or refilling amounts typed in an earlier count.
+document.addEventListener('focusin', e => { const t = e.target; if(t && t.tagName === 'INPUT') { t.setAttribute('autocomplete', 'off'); t.setAttribute('autocorrect', 'off'); } });
+document.querySelectorAll('form').forEach(f => f.setAttribute('autocomplete', 'off'));
+
 function resetForm() {
   document.getElementById("main-card").style.display="block";
   document.getElementById("success-card").style.display="none";
@@ -2613,6 +2631,7 @@ function resetForm() {
     if(input) input.value = "";
   });
   calcLottomatikCashTotal();
+  clearAllCountInputs();
   refreshScratchByBranch();
   const btn=document.getElementById("submit-btn");
   btn.textContent="Submit & Send Report 💬";
