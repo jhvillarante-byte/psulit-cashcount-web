@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>Psulit Cash Count</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -96,7 +96,10 @@
   .denom-header { display: grid; grid-template-columns: 1fr 1fr 1fr; background: #1e3a5f; color: #fff; padding: 10px 14px; font-size: 12px; font-weight: 700; text-transform: uppercase; }
   .denom-row { display: grid; grid-template-columns: 1fr 1fr 1fr; padding: 8px 14px; border-bottom: 1px solid #f1f5f9; align-items: center; }
   .denom-label { font-size: 14px; font-weight: 600; color: #1e3a5f; }
-  .denom-input { width: 90%; padding: 6px 8px; border-radius: 6px; border: 1.5px solid #e2e8f0; font-size: 14px; text-align: right; }
+  .denom-input { width: 90%; padding: 6px 8px; border-radius: 6px; border: 1.5px solid #e2e8f0; font-size: 16px; text-align: right; }
+  /* iPhone zooms in when a box with text under 16px is tapped, and the page then slides left/right: keep 16px, no side scroll */
+  input, select, textarea { font-size: 16px !important; }
+  html, body { overflow-x: hidden; max-width: 100%; }
   .denom-sub { text-align: right; font-size: 14px; color: #374151; font-weight: 500; }
   .denom-total { display: grid; grid-template-columns: 1fr 1fr 1fr; padding: 12px 14px; background: #f0f9ff; font-weight: 700; font-size: 14px; color: #1e3a5f; }
   .total-amt { text-align: right; font-size: 17px; color: #16a34a; }
