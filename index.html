@@ -656,6 +656,8 @@ async function goStep1() {
     }
     state.teller = data.teller || "Teller";
     state.sessionToken = data.token;
+    // Expected foreign currency for this count (last count + transactions since), fetched in the background
+    try { state.countCheck = fetch(`${BACKEND}/count-check`, { method:"POST", headers:{"Content-Type":"application/json","Authorization":`Bearer ${data.token}`}, body: JSON.stringify({ branch: state.branch }) }).then(r=>r.json()).catch(()=>null); } catch(e) { state.countCheck = null; }
     state.authorizedBranches = allowed;
     // Stop a second Opening in a row (a teller who already opened must now do the Closing). Fails open if the check can't be made.
     if(state.openClosing === "Opening"){
@@ -2534,13 +2536,37 @@ async function handleSubmit() {
     document.getElementById("err-declare").textContent="You must confirm the declaration";
     return;
   }
+  // Check each foreign currency against what it should be (last count + transactions since). Catches typos such as
+  // 6581 typed instead of 1 in one bill box. The teller can still send after checking; the note goes with the report.
+  let countCheckNote = "";
+  try {
+    const cc = state.countCheck ? await Promise.race([state.countCheck, new Promise(r => setTimeout(() => r(null), 6000))]) : null;
+    if (cc && cc.ok && cc.expected) {
+      const codes = new Set([...Object.keys(cc.expected), ...(state.activeCurrencies || [])].filter(c => c && c !== "PHP"));
+      const issues = [];
+      codes.forEach(code => {
+        const exp = Math.round(Number(cc.expected[code] || 0) * 100) / 100;
+        const got = (state.activeCurrencies || []).includes(code) ? Math.round(Number(getTotal(code) || 0) * 100) / 100 : 0;
+        if (Math.abs(got - exp) >= 0.01) issues.push({ code, exp, got });
+      });
+      if (issues.length) {
+        const f = (n) => Number(n).toLocaleString("en-US", { maximumFractionDigits: 2 });
+        const lines = issues.map(i => `${i.code}: you entered ${f(i.got)} — should be about ${f(i.exp)} (${i.got > i.exp ? "+" : ""}${f(i.got - i.exp)})`);
+        const ok = confirm("Please check these before sending:\n\n" + lines.join("\n") +
+          "\n\n(Based on the last count by " + (cc.last && cc.last.teller || "the last teller") + " and the transactions since.)" +
+          "\n\nTap Cancel to go back and recount. Tap OK only if you counted again and your numbers are right.");
+        if (!ok) { goTo(4); return; }
+        countCheckNote = "\n⚠️ *Sent after a count check:* " + lines.join("; ");
+      }
+    }
+  } catch(e) {}
   isSubmitting = true;
   document.getElementById("err-declare").textContent="";
   const btn=document.getElementById("submit-btn");
   btn.textContent="Saving & Sending...";
   btn.disabled=true;
 
-  const tgMsg = await buildTelegramMsg();
+  const tgMsg = (await buildTelegramMsg()) + countCheckNote;
   saveAllBalances();
 
   let tgOk=false, sheetOk=false, syncInfo=null, sendError="";
