@@ -2053,7 +2053,7 @@ function buildDenomSections() {
     cur.denoms.forEach(d=>{
       html+=`<div class="denom-row"><span class="denom-label">${denomImg(cur.code,d.v)}${d.l}</span><input class="denom-input" type="number" min="0" placeholder="0" id="denom-${cur.code}-${d.v}" oninput="updateTotals('${cur.code}')"><span class="denom-sub" id="sub-${cur.code}-${d.v}">—</span></div>`;
     });
-    html+=`<div class="denom-total"><span>TOTAL ${cur.code}</span><span></span><span class="total-amt" id="total-${cur.code}">${fmt(cur.code,0)}</span></div><div class="count-check" id="chk-${cur.code}" role="alert" style="display:none;margin:8px 0 2px;padding:10px 12px;border-radius:8px;background:#fef2f2;border:1px solid #dc2626;color:#b91c1c;font-weight:700;font-size:14px"></div></div>`;
+    html+=`<div class="denom-total"><span>TOTAL ${cur.code}</span><span></span><span class="total-amt" id="total-${cur.code}">${fmt(cur.code,0)}</span></div><div class="count-check" id="chk-${cur.code}" role="alert" style="display:none;margin:8px 4px 2px;color:#dc2626;font-weight:700;font-size:14px"></div></div>`;
     div.innerHTML=html;
     container.appendChild(div);
   });
@@ -2112,7 +2112,15 @@ function updateCountCheck(code) {
   const box = document.getElementById("chk-" + code);
   if (!box) return;
   const cc = state.countCheckData;
-  if (!cc || !cc.ok || !cc.expected) { box.style.display = "none"; return; }
+  if (!cc || !cc.ok || !cc.expected) {
+    // say why there is no check (so it can be fixed), in small grey text, once the teller starts typing
+    const typed = Number(getTotal(code) || 0) > 0;
+    if (!typed) { box.style.display = "none"; return; }
+    box.style.color = "#94a3b8"; box.style.fontWeight = "400"; box.style.fontSize = "12px";
+    box.textContent = !state.countCheck ? "Count check: not started (log in again)." : !cc ? "Count check: still loading the records…" : ("Count check unavailable: " + String(cc.warning || cc.error || "no records").slice(0, 120));
+    box.style.display = "block"; return;
+  }
+  box.style.color = "#dc2626"; box.style.fontWeight = "700"; box.style.fontSize = "14px";
   const got = Math.round(Number(getTotal(code) || 0) * 100) / 100, exp = Math.round(Number(cc.expected[code] || 0) * 100) / 100;
   const tol = code === "PHP" ? 20 : 0.01;   // pesos: allow centavo rounding of the day's transactions
   if (got === 0 || Math.abs(got - exp) < tol) { box.style.display = "none"; return; }
