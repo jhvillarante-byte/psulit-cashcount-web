@@ -2112,9 +2112,10 @@ function updateCountCheck(code) {
   const box = document.getElementById("chk-" + code);
   if (!box) return;
   const cc = state.countCheckData;
-  if (!cc || !cc.ok || !cc.expected || code === "PHP") { box.style.display = "none"; return; }
+  if (!cc || !cc.ok || !cc.expected) { box.style.display = "none"; return; }
   const got = Math.round(Number(getTotal(code) || 0) * 100) / 100, exp = Math.round(Number(cc.expected[code] || 0) * 100) / 100;
-  if (got === 0 || Math.abs(got - exp) < 0.01) { box.style.display = "none"; return; }
+  const tol = code === "PHP" ? 20 : 0.01;   // pesos: allow centavo rounding of the day's transactions
+  if (got === 0 || Math.abs(got - exp) < tol) { box.style.display = "none"; return; }
   box.textContent = `⚠️ ${code} does not match the records — it is ${got > exp ? "MORE" : "LESS"} than expected. Count again and check each box (e.g. an extra digit).`;
   box.style.display = "block";
 }
@@ -2559,12 +2560,12 @@ async function handleSubmit() {
   try {
     const cc = state.countCheck ? await Promise.race([state.countCheck, new Promise(r => setTimeout(() => r(null), 6000))]) : null;
     if (cc && cc.ok && cc.expected) {
-      const codes = new Set([...Object.keys(cc.expected), ...(state.activeCurrencies || [])].filter(c => c && c !== "PHP"));
+      const codes = new Set([...Object.keys(cc.expected), ...(state.activeCurrencies || [])].filter(Boolean));
       const issues = [];
       codes.forEach(code => {
         const exp = Math.round(Number(cc.expected[code] || 0) * 100) / 100;
         const got = (state.activeCurrencies || []).includes(code) ? Math.round(Number(getTotal(code) || 0) * 100) / 100 : 0;
-        if (Math.abs(got - exp) >= 0.01) issues.push({ code, exp, got });
+        if (Math.abs(got - exp) >= (code === "PHP" ? 20 : 0.01)) issues.push({ code, exp, got });
       });
       if (issues.length) {
         const f = (n) => Number(n).toLocaleString("en-US", { maximumFractionDigits: 2 });

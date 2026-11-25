@@ -1,7 +1,8 @@
 // Expected foreign-currency amounts for the count being entered: the branch's latest Cash Count (from the sheet, via the
 // Audit Reader) plus the BUY/SELL transactions posted since. The app compares these with what the teller entered and
 // asks them to check before sending when a currency does not match (e.g. a typed 6581 instead of 1 in one bill box).
-// PHP is not checked here (expenses and transfers also move pesos). Read only; fails open (no warning) on any error.
+// PHP: last count + transactions (BUY pays out, SELL takes in) + Cash Log entries of the Forex Drawer since the last count.
+// Read only; fails open (no warning) on any error.
 const { verifyToken, json, requirePost, parseBody } = require("./_auth");
 
 const num = (v) => { const x = Number(String(v == null ? "" : v).replace(/[^0-9.\-]/g, "")); return Number.isFinite(x) ? x : 0; };
@@ -31,6 +32,7 @@ exports.handler = async (event) => {
     const out = JSON.parse(await (await fetch(url, { signal: AbortSignal.timeout(20000) })).text());
     if (!out || out.ok !== true || !out.sheets) return json(200, { ok: true, expected: null, warning: String((out && out.error) || "No answer from reader.") });
     const counts = (out.sheets[branch + " Cash Count"] || {}).rows || [];
+    const cashlog = (out.sheets[branch + " Expense & Cash Movement"] || {}).rows || [];
     const txs = (out.sheets[branch + " Transactions"] || {}).rows || [];
     // latest count = the reference with the latest Submitted At
     let last = null;
@@ -45,7 +47,7 @@ exports.handler = async (event) => {
       if (String(field(r, "Reference")).trim() !== last.ref) continue;
       if (String(field(r, "Category")).trim() !== "Forex Cash") continue;
       const cur = String(field(r, "Currency")).trim().toUpperCase();
-      if (!cur || cur === "PHP") continue;
+      if (!cur) continue;
       base[cur] = (base[cur] || 0) + num(field(r, "Amount"));
     }
     const expected = { ...base }, moved = {};
@@ -59,6 +61,33 @@ exports.handler = async (event) => {
       if (!sign) continue;
       expected[cur] = (expected[cur] || 0) + sign * amt;
       moved[cur] = (moved[cur] || 0) + sign * amt;
+      const php = num(field(t, "PHP Equivalent"));          // BUY pays pesos out, SELL takes pesos in
+      expected.PHP = (expected.PHP || 0) - sign * php;
+      moved.PHP = (moved.PHP || 0) - sign * php;
+    }
+    // Cash Log (Expense & Cash Movement) entries that move physical pesos in or out of the Forex Drawer
+    const isForex = (v) => /^forex( drawer)?$/i.test(String(v || "").trim());
+    for (const e of cashlog) {
+      const created = String(field(e, "Created At") || "");
+      const t = Date.parse(created);
+      if (!Number.isFinite(t)) continue;
+      const at = new Date(t + 8 * 3600 * 1000).toISOString().replace("T", " ").slice(0, 19);   // Manila wall time
+      if (at <= last.at) continue;
+      const desc = String(field(e, "Description") || "");
+      if (/^\[VOIDED/i.test(desc)) continue;
+      if (String(field(e, "Actual Currency") || "PHP").trim().toUpperCase() !== "PHP") continue;
+      if (!/physical cash/i.test(String(field(e, "Asset Type") || "Physical Cash"))) continue;
+      const cat = String(field(e, "Category") || "").trim(), amt = num(field(e, "Amount PHP"));
+      const from = field(e, "Fund / Drawer"), to = field(e, "Destination Fund");
+      let sign = 0;
+      if (/internal transfer/i.test(cat)) sign = isForex(to) && !isForex(from) ? 1 : isForex(from) && !isForex(to) ? -1 : 0;
+      else if (!isForex(from)) sign = 0;
+      else if (/inter-branch transfer in|receivable settlement|^payable$/i.test(cat)) sign = 1;   // cash comes into the drawer
+      else if (/^(hive|lotto)/i.test(cat)) sign = 0;
+      else sign = -1;                                                                           // expenses, transfers out, paybacks, cash lent
+      if (!sign || !amt) continue;
+      expected.PHP = (expected.PHP || 0) + sign * amt;
+      moved.PHP = (moved.PHP || 0) + sign * amt;
     }
     return json(200, { ok: true, last, base, moved, expected });
   } catch (e) {
