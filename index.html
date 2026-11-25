@@ -657,7 +657,8 @@ async function goStep1() {
     state.teller = data.teller || "Teller";
     state.sessionToken = data.token;
     // Expected foreign currency for this count (last count + transactions since), fetched in the background
-    try { state.countCheck = fetch(`${BACKEND}/count-check`, { method:"POST", headers:{"Content-Type":"application/json","Authorization":`Bearer ${data.token}`}, body: JSON.stringify({ branch: state.branch }) }).then(r=>r.json()).catch(()=>null); } catch(e) { state.countCheck = null; }
+    try { state.countCheckData = null; state.countCheck = fetch(`${BACKEND}/count-check`, { method:"POST", headers:{"Content-Type":"application/json","Authorization":`Bearer ${data.token}`}, body: JSON.stringify({ branch: state.branch }) }).then(r=>r.json()).catch(()=>null);
+      state.countCheck.then(d => { state.countCheckData = d; try { CURRENCIES.forEach(c => updateCountCheck(c.code)); } catch(e) {} }); } catch(e) { state.countCheck = null; }
     state.authorizedBranches = allowed;
     // Stop a second Opening in a row (a teller who already opened must now do the Closing). Fails open if the check can't be made.
     if(state.openClosing === "Opening"){
@@ -2022,6 +2023,7 @@ const DENOM_IMG = { PHP: [1000, 500, 200, 100, 50, 20, 10, 5, 1, 0.25, 0.1, 0.05
   JPY: [10000, 5000, 2000, 1000, 500, 100, 50, 10], HKD: [1000, 500, 100, 50, 20], CAD: [100, 50, 20, 10, 5], GBP: [50, 20, 10, 5],
   CHF: [1000, 200, 100, 50, 20, 10], EUR: [200, 100, 50, 20, 10, 5] };
 function denomImg(code, v) {
+  return ''; // note pictures removed (Nov 26)
   return (DENOM_IMG[code] || []).includes(v) ? `<img src="/img/notes/${code}-${v}.jpg" alt="" loading="lazy" onclick="zoomNote('${code}',${v})" title="Tap to enlarge" style="height:34px;width:auto;border-radius:4px;vertical-align:middle;margin-right:10px;box-shadow:0 0 0 1px #e2e8f0;cursor:zoom-in">` : '';
 }
 // Tap a note picture: show it large (for tellers who need a bigger view). Tap anywhere to close.
@@ -2051,7 +2053,7 @@ function buildDenomSections() {
     cur.denoms.forEach(d=>{
       html+=`<div class="denom-row"><span class="denom-label">${denomImg(cur.code,d.v)}${d.l}</span><input class="denom-input" type="number" min="0" placeholder="0" id="denom-${cur.code}-${d.v}" oninput="updateTotals('${cur.code}')"><span class="denom-sub" id="sub-${cur.code}-${d.v}">—</span></div>`;
     });
-    html+=`<div class="denom-total"><span>TOTAL ${cur.code}</span><span></span><span class="total-amt" id="total-${cur.code}">${fmt(cur.code,0)}</span></div></div>`;
+    html+=`<div class="denom-total"><span>TOTAL ${cur.code}</span><span></span><span class="total-amt" id="total-${cur.code}">${fmt(cur.code,0)}</span></div><div class="count-check" id="chk-${cur.code}" role="alert" style="display:none;margin:8px 0 2px;padding:10px 12px;border-radius:8px;background:#fef2f2;border:1px solid #dc2626;color:#b91c1c;font-weight:700;font-size:14px"></div></div>`;
     div.innerHTML=html;
     container.appendChild(div);
   });
@@ -2101,7 +2103,22 @@ function updateTotals(code) {
   const tt=document.getElementById("tabtotal-"+code);
   if(tt) tt.textContent=total>0?fmt(code,total):"";
   updateAllCurSummary();
+  updateCountCheck(code);
 }
+
+// Live check while counting: once the teller has entered a total that does not match what the records say this currency
+// should be (last count + transactions since), warn right away. The expected amount itself is not shown here.
+function updateCountCheck(code) {
+  const box = document.getElementById("chk-" + code);
+  if (!box) return;
+  const cc = state.countCheckData;
+  if (!cc || !cc.ok || !cc.expected || code === "PHP") { box.style.display = "none"; return; }
+  const got = Math.round(Number(getTotal(code) || 0) * 100) / 100, exp = Math.round(Number(cc.expected[code] || 0) * 100) / 100;
+  if (got === 0 || Math.abs(got - exp) < 0.01) { box.style.display = "none"; return; }
+  box.textContent = `⚠️ ${code} does not match the records — it is ${got > exp ? "MORE" : "LESS"} than expected. Count again and check each box (e.g. an extra digit).`;
+  box.style.display = "block";
+}
+
 
 function updateAllCurSummary() {
   const box=document.getElementById("all-cur-summary");
