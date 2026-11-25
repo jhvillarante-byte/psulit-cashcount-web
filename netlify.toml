@@ -85,6 +85,12 @@
   status = 200
   force = true
 
+[[redirects]]
+  from = "/count-check"
+  to = "/.netlify/functions/count-check"
+  status = 200
+  force = true
+
 
 [[redirects]]
   from = "/recount"
