@@ -657,7 +657,7 @@ async function goStep1() {
     state.teller = data.teller || "Teller";
     state.sessionToken = data.token;
     // Expected foreign currency for this count (last count + transactions since), fetched in the background
-    try { state.countCheckData = null; state.countCheck = fetch(`${BACKEND}/count-check`, { method:"POST", headers:{"Content-Type":"application/json","Authorization":`Bearer ${data.token}`}, body: JSON.stringify({ branch: state.branch }) }).then(r=>r.json()).catch(()=>null);
+    try { state.countCheckData = null; state.countCheck = fetch(`${BACKEND}/count-check`, { method:"POST", headers:{"Content-Type":"application/json","Authorization":`Bearer ${data.token}`}, body: JSON.stringify({ branch: state.branch }) }).then(r=>r.json().catch(()=>({ ok:false, warning:"server answered HTTP " + r.status + " (too slow?)" }))).catch(e=>({ ok:false, warning:"could not reach the server" }));
       state.countCheck.then(d => { state.countCheckData = d; try { CURRENCIES.forEach(c => updateCountCheck(c.code)); } catch(e) {} }); } catch(e) { state.countCheck = null; }
     state.authorizedBranches = allowed;
     // Stop a second Opening in a row (a teller who already opened must now do the Closing). Fails open if the check can't be made.
