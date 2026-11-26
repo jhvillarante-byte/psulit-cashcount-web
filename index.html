@@ -1046,15 +1046,16 @@ function buildHiveCurrencyGrid() {
 function refreshHiveAddSelect() {
   const sel = document.getElementById("hive-add-cur");
   if(!sel) return;
-  const opts = CURRENCIES.filter(c => !hiveActiveCurrencies.includes(c.code));
-  sel.innerHTML = `<option value="">+ Add another currency to Hive/MB…</option>` + opts.map(c => `<option value="${c.code}">${c.flag} ${c.code}${c.name ? " — " + c.name : ""}</option>`).join("");
+  // PHP stays in the list (first) so Hive/MB's peso count can always be found or brought back; already-added ones show a ✓.
+  sel.innerHTML = `<option value="">Hive/MB currencies — pick PHP or add another…</option>` + CURRENCIES.map(c => `<option value="${c.code}">${c.flag} ${c.code}${c.name ? " — " + c.name : ""}${hiveActiveCurrencies.includes(c.code) ? "  ✓" : ""}</option>`).join("");
   sel.value = "";
 }
 function addHiveCurrencyFromSelect(sel) {
   const code = sel && sel.value;
   if(!code) return;
   const btn = document.getElementById("hive-cur-btn-" + code);
-  if(btn && !hiveActiveCurrencies.includes(code)) toggleHiveCurrency(code, btn);
+  if(btn && !hiveActiveCurrencies.includes(code)) toggleHiveCurrency(code, btn);   // not there yet → add it
+  else if(hiveActiveCurrencies.includes(code)) changeHiveCurrency(code);            // already added (e.g. PHP) → jump to it
   refreshHiveAddSelect();
 }
 function toggleHiveCurrency(code, btn) {

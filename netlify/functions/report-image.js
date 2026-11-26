@@ -41,6 +41,9 @@ function parseReport(message) {
   const arBooklets = arBookletsMatch ? arBookletsMatch[1] : null;
   const cctv = first(text, /CCTV footage for\s+(.+?)\s+on record/i);
   const isBackfill = /BACKFILL:/i.test(text);
+  // "⚠️ Sent after a count check: KWD: you entered 20 — should be about 0 (+20); ..." is a warning, not a balance row.
+  const ccLine = lines.find(l => /Sent after a count check:/i.test(l));
+  const countCheck = ccLine ? ccLine.replace(/^.*?Sent after a count check:\s*\*?\s*/i, "").split(/;\s*/).map(x => x.trim()).filter(Boolean) : [];
   const sections = [];
   let current = null;
 
@@ -58,6 +61,7 @@ function parseReport(message) {
     if (/^(?:[^A-Za-z0-9]*)(Branch|Shift|Teller|Timestamp|Ref Code):/i.test(rawLine)) continue;
     if (/^(?:[^A-Za-z0-9]*)Grand Total:/i.test(rawLine)) continue;
     if (/CCTV footage/i.test(rawLine)) continue;
+    if (/Sent after a count check:/i.test(rawLine)) continue;
     if (/^BACKFILL:/i.test(rawLine)) continue;
     if (/Submitted\s*&\s*Locked/i.test(rawLine)) continue;
     if (/^📒\s*AR Booklets Remaining:/i.test(rawLine)) continue;
@@ -212,7 +216,7 @@ function parseReport(message) {
   const order = ["FOREX CASH", "OTHER BALANCES", "LOTTOMATIK", "BANK BALANCES", "RECEIVABLES", "PAYABLES", "SCRATCH", "REMAINING SCRATCH CARDS", "WINNING CARDS PRESENTED TODAY"];
   sections.sort((a, b) => order.indexOf(a.name) - order.indexOf(b.name));
 
-  return { title, branch, shift, teller, timestamp, ref, grandTotal, arBooklets, cctv, isBackfill, sections };
+  return { title, branch, shift, teller, timestamp, ref, grandTotal, arBooklets, cctv, countCheck, isBackfill, sections };
 }
 
 function palette(name) {
@@ -280,12 +284,21 @@ function rowSvg(sectionName, x, y, label, value, width) {
   return `<text x="${x}" y="${y}" font-size="26" font-weight="400" fill="#D4DEE9">${esc(label)}</text><text x="${rightX}" y="${y}" text-anchor="end" font-size="26" font-weight="700" fill="#D6DAE0">${esc(value)}</text>`;
 }
 
+function wrapText(str, max) {
+  const out = []; let cur = "";
+  for (const w of String(str).split(/\s+/)) {
+    if ((cur + " " + w).trim().length > max) { if (cur) out.push(cur); cur = w; } else cur = (cur + " " + w).trim();
+  }
+  if (cur) out.push(cur);
+  return out;
+}
+
 function renderSvg(data) {
   const width = 1000, margin = 52, cardW = width - margin * 2, rowH = 48, sectionHeaderH = 60;
   let contentH = 390;
   const subH = 30;
   for (const s of data.sections) if (s.rows.length) contentH += sectionHeaderH + 28 + s.rows.length * rowH + s.rows.reduce((t, r) => t + (Array.isArray(r.sub) ? r.sub.length : 0), 0) * subH + 26;
-  contentH += 230;
+  contentH += 230 + (data.countCheck && data.countCheck.length ? 60 + data.countCheck.length * 30 : 0);
   const height = Math.max(1260, contentH + 100);
   let y = 48, body = "";
   body += `<rect width="${width}" height="${height}" fill="#06090D"/>`;
@@ -348,6 +361,14 @@ function renderSvg(data) {
   body += `<text x="${margin + 38}" y="${y}" font-size="22" font-weight="700" fill="#56D98A">Submitted &amp; Locked</text>`;
   y += 38;
   if (data.cctv) body += `<text x="${margin + 38}" y="${y}" font-size="21" font-weight="400" fill="#D2A94F">CCTV footage for ${esc(data.cctv)} on record.</text>`;
+
+  if (data.countCheck && data.countCheck.length) {
+    y += 44;
+    body += `<text x="${margin + 38}" y="${y}" font-size="20" font-weight="700" fill="#F59A52">Sent after a count check</text>`;
+    for (const item of data.countCheck) {
+      for (const part of wrapText(item, 62)) { y += 30; body += `<text x="${margin + 38}" y="${y}" font-size="19" font-weight="400" fill="#C9A06B">${esc(part)}</text>`; }
+    }
+  }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><style>text { font-family: 'DejaVu Sans', sans-serif; }</style>${body}</svg>`;
 }
