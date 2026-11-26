@@ -2586,7 +2586,7 @@ async function handleSubmit() {
           "\n\n(Based on the last count by " + (cc.last && cc.last.teller || "the last teller") + " and the transactions since.)" +
           "\n\nTap Cancel to go back and recount. Tap OK only if you counted again and your numbers are right.");
         if (!ok) { goTo(4); return; }
-        countCheckNote = "\n⚠️ *Sent after a count check:* " + lines.join("; ");
+        // Warning stays in the app only; the audit report shows any discrepancy, so it is not added to the report.
       }
     }
   } catch(e) {}

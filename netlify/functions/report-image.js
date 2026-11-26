@@ -298,7 +298,7 @@ function renderSvg(data) {
   let contentH = 390;
   const subH = 30;
   for (const s of data.sections) if (s.rows.length) contentH += sectionHeaderH + 28 + s.rows.length * rowH + s.rows.reduce((t, r) => t + (Array.isArray(r.sub) ? r.sub.length : 0), 0) * subH + 26;
-  contentH += 230 + (data.countCheck && data.countCheck.length ? 60 + data.countCheck.length * 30 : 0);
+  contentH += 230;
   const height = Math.max(1260, contentH + 100);
   let y = 48, body = "";
   body += `<rect width="${width}" height="${height}" fill="#06090D"/>`;
@@ -361,14 +361,6 @@ function renderSvg(data) {
   body += `<text x="${margin + 38}" y="${y}" font-size="22" font-weight="700" fill="#56D98A">Submitted &amp; Locked</text>`;
   y += 38;
   if (data.cctv) body += `<text x="${margin + 38}" y="${y}" font-size="21" font-weight="400" fill="#D2A94F">CCTV footage for ${esc(data.cctv)} on record.</text>`;
-
-  if (data.countCheck && data.countCheck.length) {
-    y += 44;
-    body += `<text x="${margin + 38}" y="${y}" font-size="20" font-weight="700" fill="#F59A52">Sent after a count check</text>`;
-    for (const item of data.countCheck) {
-      for (const part of wrapText(item, 62)) { y += 30; body += `<text x="${margin + 38}" y="${y}" font-size="19" font-weight="400" fill="#C9A06B">${esc(part)}</text>`; }
-    }
-  }
 
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}"><style>text { font-family: 'DejaVu Sans', sans-serif; }</style>${body}</svg>`;
 }
